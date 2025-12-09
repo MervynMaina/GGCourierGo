@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "159539435176",
+    "project_id": "ggcouriergo",
+    "storage_bucket": "ggcouriergo.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:159539435176:android:deb79152fbc8222b28d49d",
+        "android_client_info": {
+          "package_name": "com.mervyn.ggcouriergo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDi9DY64nzNnttN2QOd98yI9Cimg2Yue0E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
