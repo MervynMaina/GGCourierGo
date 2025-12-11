@@ -1,4 +1,4 @@
 package com.mervyn.ggcouriergo.data
 
-class ParcelViewModel {
+class AuthViewModel {
 }

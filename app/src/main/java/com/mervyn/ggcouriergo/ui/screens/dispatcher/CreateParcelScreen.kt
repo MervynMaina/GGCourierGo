@@ -6,26 +6,30 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import com.google.firebase.firestore.FirebaseFirestore
+import com.mervyn.ggcouriergo.data.CreateParcelViewModel
+import com.mervyn.ggcouriergo.data.CreateParcelViewModelFactory
+import com.mervyn.ggcouriergo.models.CreateParcelUIState
+import com.mervyn.ggcouriergo.models.Parcel
+import com.mervyn.ggcouriergo.repository.ParcelRepository
 import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
-import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateParcelScreen(navController: NavController? = null) {
+fun CreateParcelScreen(
+    navController: NavController,
+    viewModel: CreateParcelViewModel = viewModel(factory = CreateParcelViewModelFactory(
+        ParcelRepository()
+    )
+    )
+) {
+    val uiState by viewModel.uiState.collectAsState()
+
     var senderName by remember { mutableStateOf("") }
-    var senderPhone by remember { mutableStateOf("") }
     var receiverName by remember { mutableStateOf("") }
-    var receiverPhone by remember { mutableStateOf("") }
     var pickupAddress by remember { mutableStateOf("") }
     var dropoffAddress by remember { mutableStateOf("") }
-    var packageDetails by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf("") }
-
-    val db = FirebaseFirestore.getInstance()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Create Parcel") }) }
@@ -34,26 +38,15 @@ fun CreateParcelScreen(navController: NavController? = null) {
             modifier = Modifier
                 .padding(paddingValues)
                 .padding(16.dp)
-                .fillMaxSize()
         ) {
-            Text("Parcel Information", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(20.dp))
 
-            // Input fields
             OutlinedTextField(
                 value = senderName,
                 onValueChange = { senderName = it },
                 label = { Text("Sender Name") },
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = senderPhone,
-                onValueChange = { senderPhone = it },
-                label = { Text("Sender Phone") },
-                modifier = Modifier.fillMaxWidth()
-            )
             Spacer(Modifier.height(8.dp))
 
             OutlinedTextField(
@@ -62,14 +55,7 @@ fun CreateParcelScreen(navController: NavController? = null) {
                 label = { Text("Receiver Name") },
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = receiverPhone,
-                onValueChange = { receiverPhone = it },
-                label = { Text("Receiver Phone") },
-                modifier = Modifier.fillMaxWidth()
-            )
             Spacer(Modifier.height(8.dp))
 
             OutlinedTextField(
@@ -78,6 +64,7 @@ fun CreateParcelScreen(navController: NavController? = null) {
                 label = { Text("Pickup Address") },
                 modifier = Modifier.fillMaxWidth()
             )
+
             Spacer(Modifier.height(8.dp))
 
             OutlinedTextField(
@@ -86,68 +73,37 @@ fun CreateParcelScreen(navController: NavController? = null) {
                 label = { Text("Dropoff Address") },
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(8.dp))
 
-            OutlinedTextField(
-                value = packageDetails,
-                onValueChange = { packageDetails = it },
-                label = { Text("Package Details") },
-                modifier = Modifier.fillMaxWidth()
-            )
             Spacer(Modifier.height(16.dp))
 
-            if (errorMessage.isNotEmpty()) {
-                Text(errorMessage, color = MaterialTheme.colorScheme.error)
-                Spacer(Modifier.height(8.dp))
+            when (uiState) {
+                is CreateParcelUIState.Loading -> CircularProgressIndicator()
+                is CreateParcelUIState.Error -> Text(
+                    (uiState as CreateParcelUIState.Error).message,
+                    color = MaterialTheme.colorScheme.error
+                )
+                is CreateParcelUIState.Success -> LaunchedEffect(Unit) {
+                    navController.popBackStack() // Go back after success
+                }
+                else -> {}
             }
 
             Button(
                 onClick = {
-                    if (senderName.isBlank() || receiverName.isBlank() || pickupAddress.isBlank() || dropoffAddress.isBlank()) {
-                        errorMessage = "Please fill all required fields"
-                        return@Button
-                    }
-
-                    isLoading = true
-                    val parcelId = UUID.randomUUID().toString()
-                    val parcelData = mapOf(
-                        "id" to parcelId,
-                        "senderName" to senderName,
-                        "senderPhone" to senderPhone,
-                        "receiverName" to receiverName,
-                        "receiverPhone" to receiverPhone,
-                        "pickupAddress" to pickupAddress,
-                        "dropoffAddress" to dropoffAddress,
-                        "packageDetails" to packageDetails,
-                        "assignedDriver" to null,
-                        "status" to "pending",
-                        "createdAt" to System.currentTimeMillis()
+                    viewModel.createParcel(
+                        Parcel(
+                            senderName = senderName,
+                            receiverName = receiverName,
+                            pickupAddress = pickupAddress,
+                            dropoffAddress = dropoffAddress,
+                            status = "pending"
+                        )
                     )
-
-                    db.collection("parcels").document(parcelId)
-                        .set(parcelData)
-                        .addOnSuccessListener {
-                            isLoading = false
-                            navController?.popBackStack() // return to dashboard
-                        }
-                        .addOnFailureListener { e ->
-                            isLoading = false
-                            errorMessage = e.message ?: "Failed to create parcel"
-                        }
-
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading
+                enabled = uiState != CreateParcelUIState.Loading
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text("Create Parcel")
-                }
+                Text("Create Parcel")
             }
         }
     }
@@ -156,7 +112,7 @@ fun CreateParcelScreen(navController: NavController? = null) {
 @Preview(showBackground = true)
 @Composable
 fun PreviewCreateParcelScreen() {
-    val navController = rememberNavController()
+    val navController = NavController(null)
     CourierGoTheme {
         CreateParcelScreen(navController)
     }

@@ -11,6 +11,9 @@ import androidx.navigation.compose.rememberNavController
 import com.google.firebase.firestore.FirebaseFirestore
 import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
 
+// --------------------------------------------------
+// DATA CLASS
+// --------------------------------------------------
 data class DriverParcelDetails(
     val id: String = "",
     val pickupAddress: String = "",
@@ -21,6 +24,9 @@ data class DriverParcelDetails(
     val status: String = ""
 )
 
+// --------------------------------------------------
+// SCREEN
+// --------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriverParcelDetailsScreen(
@@ -60,14 +66,13 @@ fun DriverParcelDetailsScreen(
         onDispose { listener.remove() }
     }
 
-    // Firestore update function
+    // Firestore status update
     fun updateStatus(newStatus: String, navigateAfter: Boolean = false) {
         updating = true
         db.collection("parcels").document(parcelId)
             .update("status", newStatus)
             .addOnSuccessListener {
                 updating = false
-
                 if (navigateAfter) {
                     navController?.navigate("driver_delivery_summary/$parcelId")
                 }
@@ -77,6 +82,9 @@ fun DriverParcelDetailsScreen(
             }
     }
 
+    // --------------------------------------------------
+    // UI LAYOUT
+    // --------------------------------------------------
     Scaffold(
         topBar = { TopAppBar(title = { Text("Delivery Task") }) }
     ) { paddingValues ->
@@ -114,25 +122,20 @@ fun DriverParcelDetailsScreen(
             Spacer(Modifier.height(24.dp))
 
             // --- ACTION BUTTONS ---
-
-            if (data.status == "pending") {
-                Button(
+            when (data.status.lowercase()) {
+                "pending" -> Button(
                     onClick = { updateStatus("picked_up") },
                     enabled = !updating,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Mark as Picked Up") }
-            }
 
-            if (data.status == "picked_up") {
-                Button(
+                "picked_up" -> Button(
                     onClick = { updateStatus("in_transit") },
                     enabled = !updating,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Start Navigation / In Transit") }
-            }
 
-            if (data.status == "in_transit") {
-                Button(
+                "in_transit" -> Button(
                     onClick = { updateStatus("delivered", navigateAfter = true) },
                     enabled = !updating,
                     modifier = Modifier.fillMaxWidth()
@@ -142,6 +145,9 @@ fun DriverParcelDetailsScreen(
     }
 }
 
+// --------------------------------------------------
+// PREVIEW
+// --------------------------------------------------
 @Preview(showBackground = true)
 @Composable
 fun PreviewDriverParcelDetailsScreen() {

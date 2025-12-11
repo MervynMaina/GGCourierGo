@@ -1,4 +1,4 @@
-package com.mervyn.ggcouriergo.ui.screens.tracking
+package com.mervyn.ggcouriergo.ui.screens.driver
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer

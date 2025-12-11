@@ -1,4 +1,4 @@
-package com.mervyn.ggcouriergo.ui.screens.parcel
+package com.mervyn.ggcouriergo.ui.screens.dispatcher
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*

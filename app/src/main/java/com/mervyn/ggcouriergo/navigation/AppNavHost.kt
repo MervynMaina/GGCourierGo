@@ -14,7 +14,7 @@ import com.mervyn.ggcouriergo.ui.screens.dispatcher.DispatcherDashboardScreen
 import com.mervyn.ggcouriergo.ui.screens.delivery.DeliveryDetailsScreen
 import com.mervyn.ggcouriergo.ui.screens.driver.DriverDashboardScreen
 import com.mervyn.ggcouriergo.ui.screens.driver.DriverParcelDetailsScreen
-import com.mervyn.ggcouriergo.ui.screens.parcel.ParcelDetailsScreen
+import com.mervyn.ggcouriergo.ui.screens.dispatcher.ParcelDetailsScreen
 
 
 @Composable

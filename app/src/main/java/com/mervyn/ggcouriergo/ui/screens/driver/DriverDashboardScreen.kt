@@ -9,82 +9,34 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import com.mervyn.ggcouriergo.navigation.driverParcelDetailsRoute
+import com.mervyn.ggcouriergo.data.DriverDashboardViewModel
+import com.mervyn.ggcouriergo.data.DriverDashboardViewModelFactory
+import com.mervyn.ggcouriergo.models.DriverDashboardUIState
+import com.mervyn.ggcouriergo.models.Parcel
+import com.mervyn.ggcouriergo.repository.ParcelRepository
 import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
+import com.mervyn.ggcouriergo.navigation.driverParcelDetailsRoute
 
-// --------------------------------------------------
-// DATA CLASS
-// --------------------------------------------------
-data class Parcel(
-    val id: String = "",
-    val pickupAddress: String = "",
-    val dropoffAddress: String = "",
-    val status: String = "",
-    val assignedDriver: String? = null
-)
-
-// --------------------------------------------------
-// DRIVER DASHBOARD SCREEN
-// --------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DriverDashboardScreen(navController: NavController) {
+fun DriverDashboardScreen(
+    navController: NavController,
+    driverId: String,
+    viewModel: DriverDashboardViewModel = viewModel(factory = DriverDashboardViewModelFactory(
+        ParcelRepository()
+    )
+    )
+) {
+    val uiState by viewModel.uiState.collectAsState()
 
-    val auth = FirebaseAuth.getInstance()
-    val db = FirebaseFirestore.getInstance()
+    LaunchedEffect(Unit) { viewModel.loadAssignedParcels(driverId) }
 
-    var parcels by remember { mutableStateOf(listOf<Parcel>()) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    // Real-time listener for driver's assigned parcels
-    DisposableEffect(auth.currentUser?.uid) {
-
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            parcels = emptyList()
-            isLoading = false
-            return@DisposableEffect onDispose { }
-        }
-
-        val listener = db.collection("parcels")
-            .whereEqualTo("assignedDriver", uid)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, error ->
-
-                if (error != null) {
-                    parcels = emptyList()
-                    isLoading = false
-                    return@addSnapshotListener
-                }
-
-                parcels = snapshot?.documents?.map { doc ->
-                    Parcel(
-                        id = doc.id,
-                        pickupAddress = doc.getString("pickupAddress") ?: "",
-                        dropoffAddress = doc.getString("dropoffAddress") ?: "",
-                        status = doc.getString("status") ?: "",
-                        assignedDriver = doc.getString("assignedDriver")
-                    )
-                } ?: emptyList()
-
-                isLoading = false
-            }
-
-        onDispose { listener.remove() }
-    }
-
-    // --------------------------------------------------
-    // UI CONTENT
-    // --------------------------------------------------
     Scaffold(
         topBar = { TopAppBar(title = { Text("Driver Dashboard") }) }
     ) { paddingValues ->
-
         Column(
             modifier = Modifier
                 .padding(paddingValues)
@@ -92,62 +44,32 @@ fun DriverDashboardScreen(navController: NavController) {
         ) {
 
             Text("Welcome, Driver!", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // --------------------------------------------------
-            // SHIFT STATUS
-            // --------------------------------------------------
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Text("Shift Status", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(8.dp))
-
-                    Text("You are currently OFF duty.")
-                    Spacer(Modifier.height(12.dp))
-
-                    Button(
-                        onClick = { /* TODO: Implement Start Shift */ },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Start Shift")
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // --------------------------------------------------
-            // ASSIGNED DELIVERIES
-            // --------------------------------------------------
-            Text("Assigned Deliveries", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(12.dp))
-
-            when {
-                isLoading -> {
-                    Box(
-                        modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = Alignment.Center
-                    ) {
+            when (uiState) {
+                is DriverDashboardUIState.Loading -> {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
-
-                parcels.isEmpty() -> {
-                    Text("No assigned deliveries.")
+                is DriverDashboardUIState.Error -> {
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text((uiState as DriverDashboardUIState.Error).message)
+                    }
                 }
-
-                else -> {
-                    LazyColumn {
-                        items(parcels) { parcel ->
-                            DeliveryItemCard(
-                                parcel = parcel,
-                                onStartClick = {
+                is DriverDashboardUIState.Success -> {
+                    val parcels = (uiState as DriverDashboardUIState.Success).parcels
+                    if (parcels.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            Text("No deliveries assigned yet.")
+                        }
+                    } else {
+                        LazyColumn {
+                            items(parcels) { parcel ->
+                                DriverParcelCard(parcel = parcel) {
                                     navController.navigate(driverParcelDetailsRoute(parcel.id))
                                 }
-                            )
+                            }
                         }
                     }
                 }
@@ -156,44 +78,32 @@ fun DriverDashboardScreen(navController: NavController) {
     }
 }
 
-// --------------------------------------------------
-// DELIVERY CARD
-// --------------------------------------------------
 @Composable
-fun DeliveryItemCard(parcel: Parcel, onStartClick: () -> Unit) {
+fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-
         Column(modifier = Modifier.padding(16.dp)) {
-
             Text("Parcel: ${parcel.id}", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(4.dp))
-
             Text("Pickup: ${parcel.pickupAddress}")
             Text("Dropoff: ${parcel.dropoffAddress}")
-            Text("Status: ${parcel.status}")
-
+            Text("Receiver: ${parcel.receiverName}")
             Spacer(Modifier.height(8.dp))
-
-            Button(onClick = onStartClick, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
                 Text("View / Start Delivery")
             }
         }
     }
 }
 
-// --------------------------------------------------
-// PREVIEW
-// --------------------------------------------------
 @Preview(showBackground = true)
 @Composable
-fun PreviewDriverDashboard() {
+fun PreviewDriverDashboardScreen() {
     val navController = rememberNavController()
     CourierGoTheme {
-        DriverDashboardScreen(navController)
+        DriverDashboardScreen(navController, driverId = "123")
     }
 }
