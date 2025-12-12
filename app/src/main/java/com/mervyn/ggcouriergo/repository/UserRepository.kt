@@ -1,5 +1,7 @@
 package com.mervyn.ggcouriergo.repository
 
+import com.google.firebase.firestore.FirebaseFirestore
+
 class UserRepository(private val db: FirebaseFirestore) {
     fun getUserRole(uid: String, onResult: (Result<String>) -> Unit) {
         db.collection("users").document(uid).get()

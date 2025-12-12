@@ -3,6 +3,7 @@ package com.mervyn.ggcouriergo.data
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.mervyn.ggcouriergo.models.RegisterUIState
 import com.mervyn.ggcouriergo.repository.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -1,4 +1,4 @@
-package com.mervyn.ggcouriergo.data
+package com.mervyn.ggcouriergo.ui.screens.auth
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,20 +12,28 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.mervyn.ggcouriergo.data.model.Parcel
-import com.mervyn.ggcouriergo.data.repository.ParcelRepository
-import com.mervyn.ggcouriergo.ui.screens.dispatcher.DispatcherDashboardUIState
+import com.mervyn.ggcouriergo.data.DispatcherDashboardViewModel
+import com.mervyn.ggcouriergo.data.DispatcherDashboardViewModelFactory
+import com.mervyn.ggcouriergo.models.DispatcherDashboardUIState
+import com.mervyn.ggcouriergo.models.Parcel
+import com.mervyn.ggcouriergo.repository.ParcelRepository
 import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
-import com.mervyn.ggcouriergo.navigation.parcelDetailsRoute
+import com.mervyn.ggcouriergo.navigation.routeParcelDetails
 
+// --------------------------------------------------
+// Dispatcher Dashboard Screen
+// --------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DispatcherDashboardScreen(
     navController: NavController,
-    viewModel: DispatcherDashboardViewModel = viewModel(factory = DispatcherDashboardViewModelFactory(ParcelRepository()))
+    viewModel: DispatcherDashboardViewModel = viewModel(
+        factory = DispatcherDashboardViewModelFactory(ParcelRepository())
+    )
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState(initial = DispatcherDashboardUIState.Loading)
 
+    // Load parcels on first composition
     LaunchedEffect(Unit) {
         viewModel.loadParcels()
     }
@@ -33,13 +41,11 @@ fun DispatcherDashboardScreen(
     Scaffold(
         topBar = { TopAppBar(title = { Text("Dispatcher Dashboard") }) }
     ) { paddingValues ->
-
         Column(
             modifier = Modifier
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-
             Text("Welcome, Dispatcher!", style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(20.dp))
 
@@ -49,13 +55,11 @@ fun DispatcherDashboardScreen(
                         CircularProgressIndicator()
                     }
                 }
-
                 is DispatcherDashboardUIState.Error -> {
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         Text((uiState as DispatcherDashboardUIState.Error).message)
                     }
                 }
-
                 is DispatcherDashboardUIState.Success -> {
                     val parcels = (uiState as DispatcherDashboardUIState.Success).parcels
                     if (parcels.isEmpty()) {
@@ -66,15 +70,16 @@ fun DispatcherDashboardScreen(
                         LazyColumn {
                             items(parcels) { parcel ->
                                 AssignableDeliveryCard(parcel = parcel) {
-                                    navController.navigate(parcelDetailsRoute(parcel.id))
+                                    navController.navigate(routeParcelDetails(parcel.id))
                                 }
                             }
                         }
                     }
                 }
-
                 is DispatcherDashboardUIState.Idle -> {
-                    // Optional: show placeholder or nothing
+                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Text("Idle state")
+                    }
                 }
             }
         }
@@ -82,7 +87,7 @@ fun DispatcherDashboardScreen(
 }
 
 // --------------------------------------------------
-// DELIVERY CARD
+// Delivery Card
 // --------------------------------------------------
 @Composable
 fun AssignableDeliveryCard(parcel: Parcel, onAssignClick: () -> Unit) {
@@ -108,13 +113,84 @@ fun AssignableDeliveryCard(parcel: Parcel, onAssignClick: () -> Unit) {
 }
 
 // --------------------------------------------------
-// PREVIEW
+// Preview - Multiple States
 // --------------------------------------------------
 @Preview(showBackground = true)
 @Composable
 fun PreviewDispatcherDashboardScreen() {
     val navController = rememberNavController()
+
+    val dummyParcels = listOf(
+        Parcel(
+            id = "P001", senderName = "Alice", receiverName = "Bob",
+            pickupAddress = "123 Main St", dropoffAddress = "456 Elm St", packageDetails = "Box"
+        ),
+        Parcel(
+            id = "P002", senderName = "Charlie", receiverName = "Dave",
+            pickupAddress = "789 Oak St", dropoffAddress = "321 Pine St", packageDetails = "Envelope"
+        )
+    )
+
     CourierGoTheme {
-        DispatcherDashboardScreen(navController)
+        Column(modifier = Modifier.fillMaxSize()) {
+            Text("Loading State Preview")
+            DispatcherDashboardScreen(
+                navController = navController,
+                viewModel = object : DispatcherDashboardViewModel(ParcelRepository()) {
+                    init { _uiState.value = DispatcherDashboardUIState.Loading }
+                    override fun loadParcels() {}
+                }
+            )
+
+            Spacer(Modifier.height(16.dp))
+            Text("Success State Preview")
+            DispatcherDashboardScreen(
+                navController = navController,
+                viewModel = object : DispatcherDashboardViewModel(ParcelRepository()) {
+                    init { _uiState.value = DispatcherDashboardUIState.Success(dummyParcels) }
+                    override fun loadParcels() {}
+                }
+            )
+
+            Spacer(Modifier.height(16.dp))
+            Text("Empty State Preview")
+            DispatcherDashboardScreen(
+                navController = navController,
+                viewModel = object : DispatcherDashboardViewModel(ParcelRepository()) {
+                    init { _uiState.value = DispatcherDashboardUIState.Success(emptyList()) }
+                    override fun loadParcels() {}
+                }
+            )
+
+            Spacer(Modifier.height(16.dp))
+            Text("Error State Preview")
+            DispatcherDashboardScreen(
+                navController = navController,
+                viewModel = object : DispatcherDashboardViewModel(ParcelRepository()) {
+                    init { _uiState.value = DispatcherDashboardUIState.Error("Failed to load parcels") }
+                    override fun loadParcels() {}
+                }
+            )
+        }
+    }
+}
+
+// --------------------------------------------------
+// Preview - Single Card
+// --------------------------------------------------
+@Preview(showBackground = true)
+@Composable
+fun PreviewAssignableDeliveryCard() {
+    val dummyParcel = Parcel(
+        id = "P100",
+        senderName = "John Doe",
+        receiverName = "Jane Smith",
+        pickupAddress = "100 Maple St",
+        dropoffAddress = "200 Oak St",
+        packageDetails = "Medium Box"
+    )
+
+    CourierGoTheme {
+        AssignableDeliveryCard(parcel = dummyParcel, onAssignClick = {})
     }
 }

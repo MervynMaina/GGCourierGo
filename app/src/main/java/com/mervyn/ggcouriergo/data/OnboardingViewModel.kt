@@ -4,7 +4,8 @@ package com.mervyn.ggcouriergo.data
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.mervyn.ggcouriergo.data.repository.OnboardingRepository
+import com.mervyn.ggcouriergo.models.OnboardingUIState
+import com.mervyn.ggcouriergo.repository.OnboardingRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch

@@ -35,6 +35,32 @@ class ParcelRepository {
         }
     }
 
+    // Fetch parcels assigned to a specific driver ✅
+    suspend fun getAssignedParcels(driverId: String): List<Parcel> {
+        return try {
+            val snapshot = db.collection("parcels")
+                .whereEqualTo("assignedDriver", driverId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .get()
+                .await()
+
+            snapshot.documents.map { doc ->
+                Parcel(
+                    id = doc.id,
+                    senderName = doc.getString("senderName") ?: "",
+                    receiverName = doc.getString("receiverName") ?: "",
+                    pickupAddress = doc.getString("pickupAddress") ?: "",
+                    dropoffAddress = doc.getString("dropoffAddress") ?: "",
+                    status = doc.getString("status") ?: "",
+                    assignedDriver = doc.getString("assignedDriver") ?: null,
+                    createdAt = doc.getLong("createdAt") ?: System.currentTimeMillis()
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     // Assign driver to parcel
     suspend fun assignDriver(parcelId: String, driverId: String): Boolean {
         return try {

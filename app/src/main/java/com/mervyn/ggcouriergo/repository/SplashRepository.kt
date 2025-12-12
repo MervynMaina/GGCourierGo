@@ -2,7 +2,7 @@ package com.mervyn.ggcouriergo.repository
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.mervyn.ggcouriergo.ui.screens.splash.UserRole
+import com.mervyn.ggcouriergo.models.UserRole
 import kotlinx.coroutines.tasks.await
 
 class SplashRepository(

@@ -8,6 +8,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.mervyn.ggcouriergo.data.CreateParcelViewModel
 import com.mervyn.ggcouriergo.data.CreateParcelViewModelFactory
 import com.mervyn.ggcouriergo.models.CreateParcelUIState
@@ -19,9 +20,8 @@ import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
 @Composable
 fun CreateParcelScreen(
     navController: NavController,
-    viewModel: CreateParcelViewModel = viewModel(factory = CreateParcelViewModelFactory(
-        ParcelRepository()
-    )
+    viewModel: CreateParcelViewModel = viewModel(
+        factory = CreateParcelViewModelFactory(ParcelRepository())
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -30,6 +30,13 @@ fun CreateParcelScreen(
     var receiverName by remember { mutableStateOf("") }
     var pickupAddress by remember { mutableStateOf("") }
     var dropoffAddress by remember { mutableStateOf("") }
+
+    // Navigate back on successful creation
+    LaunchedEffect(uiState) {
+        if (uiState is CreateParcelUIState.Success) {
+            navController.popBackStack()
+        }
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Create Parcel") }) }
@@ -82,11 +89,10 @@ fun CreateParcelScreen(
                     (uiState as CreateParcelUIState.Error).message,
                     color = MaterialTheme.colorScheme.error
                 )
-                is CreateParcelUIState.Success -> LaunchedEffect(Unit) {
-                    navController.popBackStack() // Go back after success
-                }
                 else -> {}
             }
+
+            Spacer(Modifier.height(16.dp))
 
             Button(
                 onClick = {
@@ -112,7 +118,7 @@ fun CreateParcelScreen(
 @Preview(showBackground = true)
 @Composable
 fun PreviewCreateParcelScreen() {
-    val navController = NavController(null)
+    val navController = rememberNavController()
     CourierGoTheme {
         CreateParcelScreen(navController)
     }

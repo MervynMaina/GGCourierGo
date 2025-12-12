@@ -12,7 +12,10 @@ import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ParcelDetailsScreen(navController: NavController? = null, parcelId: String = "123") {
+fun ParcelDetailsScreen(
+    navController: NavController? = null,
+    parcelId: String = "123"
+) {
     Scaffold(
         topBar = { TopAppBar(title = { Text("Parcel Details") }) }
     ) { paddingValues ->
@@ -36,7 +39,7 @@ fun ParcelDetailsScreen(navController: NavController? = null, parcelId: String =
             Spacer(Modifier.height(24.dp))
 
             Button(
-                onClick = { /* TODO: Edit parcel */ },
+                onClick = { /* TODO: Navigate to edit parcel or update status */ },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Edit Parcel")

@@ -17,29 +17,52 @@ import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeliveryDetailScreen(
-    parcelId: String,
+fun DeliveryDetailsScreen(
     navController: NavController? = null,
-    viewModel: DeliveryDetailViewModel = viewModel(factory = DeliveryDetailViewModelFactory(parcelId))
+    deliveryId: String,    // must match navigation argument
+    viewModel: DeliveryDetailViewModel = viewModel(
+        factory = DeliveryDetailViewModelFactory(deliveryId)
+    )
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Delivery Details") }) }) { padding ->
-        Column(modifier = Modifier.padding(padding).padding(16.dp)) {
+    Scaffold(
+        topBar = { TopAppBar(title = { Text("Delivery Details") }) }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .padding(paddingValues)
+                .padding(16.dp)
+                .fillMaxSize()
+        ) {
 
             when (uiState) {
+
                 is DeliveryDetailUIState.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
                         CircularProgressIndicator()
                     }
                 }
+
                 is DeliveryDetailUIState.Error -> {
-                    Text((uiState as DeliveryDetailUIState.Error).message, color = MaterialTheme.colorScheme.error)
+                    Text(
+                        (uiState as DeliveryDetailUIState.Error).message,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
+
                 is DeliveryDetailUIState.Success -> {
                     val data = (uiState as DeliveryDetailUIState.Success).detail
-                    Text("Parcel ID: ${data.id}", style = MaterialTheme.typography.headlineMedium)
+
+                    Text(
+                        "Delivery ID: ${data.id}",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
                     Spacer(Modifier.height(16.dp))
+
                     Text("Pickup: ${data.pickupAddress}")
                     Text("Dropoff: ${data.dropoffAddress}")
                     Text("Sender: ${data.senderName}")
@@ -55,9 +78,12 @@ fun DeliveryDetailScreen(
 
 @Preview(showBackground = true)
 @Composable
-fun PreviewDeliveryDetailScreen() {
+fun PreviewDeliveryDetailsScreen() {
     val navController = rememberNavController()
     CourierGoTheme {
-        DeliveryDetailScreen(parcelId = "123", navController = navController)
+        DeliveryDetailsScreen(
+            navController = navController,
+            deliveryId = "DEL123"
+        )
     }
 }

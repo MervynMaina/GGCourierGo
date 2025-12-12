@@ -3,17 +3,18 @@ package com.mervyn.ggcouriergo.data
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.mervyn.ggcouriergo.data.repository.ParcelRepository
+import com.mervyn.ggcouriergo.models.DispatcherDashboardUIState
+import com.mervyn.ggcouriergo.repository.ParcelRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class DispatcherDashboardViewModel(private val repository: ParcelRepository) : ViewModel() {
+open class DispatcherDashboardViewModel(private val repository: ParcelRepository) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<DispatcherDashboardUIState>(DispatcherDashboardUIState.Loading)
+    val _uiState = MutableStateFlow<DispatcherDashboardUIState>(DispatcherDashboardUIState.Loading)
     val uiState: StateFlow<DispatcherDashboardUIState> = _uiState
 
-    fun loadParcels() {
+    open fun loadParcels() {
         _uiState.value = DispatcherDashboardUIState.Loading
         viewModelScope.launch {
             try {

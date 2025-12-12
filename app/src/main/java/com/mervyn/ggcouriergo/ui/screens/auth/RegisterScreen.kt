@@ -13,6 +13,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.mervyn.ggcouriergo.data.RegisterViewModel
+import com.mervyn.ggcouriergo.data.RegisterViewModelFactory
+import com.mervyn.ggcouriergo.models.RegisterUIState
 import com.mervyn.ggcouriergo.navigation.ROUT_LOGIN
 import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
 import com.mervyn.ggcouriergo.repository.AuthRepository

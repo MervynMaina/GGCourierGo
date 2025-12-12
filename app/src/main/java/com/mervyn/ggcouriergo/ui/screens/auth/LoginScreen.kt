@@ -12,15 +12,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.mervyn.ggcouriergo.data.LoginViewModel
 import com.mervyn.ggcouriergo.data.LoginViewModelFactory
-import com.mervyn.ggcouriergo.data.repository.AuthRepository
 import com.mervyn.ggcouriergo.models.LoginUIState
-import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
+import com.mervyn.ggcouriergo.repository.AuthRepository
+import com.mervyn.ggcouriergo.navigation.ROUT_ADMIN_DASHBOARD
 import com.mervyn.ggcouriergo.navigation.ROUT_DRIVER_DASHBOARD
 import com.mervyn.ggcouriergo.navigation.ROUT_DISPATCHER_DASHBOARD
-import com.mervyn.ggcouriergo.navigation.ROUT_HOME_SCREEN
-import com.mervyn.ggcouriergo.repository.AuthRepository
+import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,7 +28,8 @@ fun LoginScreen(
     navController: NavController,
     viewModel: LoginViewModel = viewModel(factory = LoginViewModelFactory(AuthRepository()))
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    // Explicitly specify type for collectAsState
+    val uiState: LoginUIState by viewModel.uiState.collectAsState(initial = LoginUIState.Idle)
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
 
@@ -104,7 +105,7 @@ fun LoginScreen(
                 navController.navigate(ROUT_DISPATCHER_DASHBOARD) { popUpTo("login") { inclusive = true } }
             }
             is LoginUIState.SuccessAdmin -> {
-                navController.navigate(ROUT_HOME_SCREEN) { popUpTo("login") { inclusive = true } }
+                navController.navigate(ROUT_ADMIN_DASHBOARD) { popUpTo("login") { inclusive = true } }
             }
             else -> {}
         }
@@ -114,7 +115,7 @@ fun LoginScreen(
 @Preview(showBackground = true)
 @Composable
 fun PreviewLoginScreen() {
-    val navController = NavController(null)
+    val navController = rememberNavController()
     CourierGoTheme {
         LoginScreen(navController)
     }

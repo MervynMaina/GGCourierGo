@@ -1,32 +1,26 @@
 package com.mervyn.ggcouriergo.ui.screens.driver
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.firestore.FirebaseFirestore
+import com.mervyn.ggcouriergo.models.Parcel
+import com.mervyn.ggcouriergo.navigation.routeDeliverySummary
 import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
+import java.util.*
 
-// --------------------------------------------------
-// DATA CLASS
-// --------------------------------------------------
-data class DriverParcelDetails(
-    val id: String = "",
-    val pickupAddress: String = "",
-    val dropoffAddress: String = "",
-    val receiverName: String = "",
-    val receiverPhone: String = "",
-    val packageDetails: String = "",
-    val status: String = ""
-)
-
-// --------------------------------------------------
-// SCREEN
-// --------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriverParcelDetailsScreen(
@@ -34,10 +28,17 @@ fun DriverParcelDetailsScreen(
     parcelId: String
 ) {
     val db = FirebaseFirestore.getInstance()
-
-    var parcel by remember { mutableStateOf<DriverParcelDetails?>(null) }
+    var parcel by remember { mutableStateOf<Parcel?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var updating by remember { mutableStateOf(false) }
+    var selectedPhotoUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Photo picker
+    val context = LocalContext.current
+    val photoLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri -> selectedPhotoUri = uri }
+    )
 
     // Real-time parcel listener
     DisposableEffect(parcelId) {
@@ -50,14 +51,18 @@ fun DriverParcelDetailsScreen(
                 }
 
                 if (doc != null && doc.exists()) {
-                    parcel = DriverParcelDetails(
+                    parcel = Parcel(
                         id = doc.id,
+                        senderName = doc.getString("senderName") ?: "",
+                        receiverName = doc.getString("receiverName") ?: "",
                         pickupAddress = doc.getString("pickupAddress") ?: "",
                         dropoffAddress = doc.getString("dropoffAddress") ?: "",
-                        receiverName = doc.getString("receiverName") ?: "",
-                        receiverPhone = doc.getString("receiverPhone") ?: "",
                         packageDetails = doc.getString("packageDetails") ?: "",
-                        status = doc.getString("status") ?: ""
+                        status = doc.getString("status") ?: "",
+                        assignedDriver = doc.getString("assignedDriver"),
+                        createdAt = doc.getLong("createdAt"),
+                        deliveredAt = doc.getLong("deliveredAt"),
+                        deliveryPhotoUrl = doc.getString("deliveryPhotoUrl")
                     )
                 }
                 isLoading = false
@@ -66,29 +71,27 @@ fun DriverParcelDetailsScreen(
         onDispose { listener.remove() }
     }
 
-    // Firestore status update
-    fun updateStatus(newStatus: String, navigateAfter: Boolean = false) {
+    fun updateStatusDelivered(photoUrl: String) {
         updating = true
-        db.collection("parcels").document(parcelId)
-            .update("status", newStatus)
+        db.collection("parcels")
+            .document(parcelId)
+            .update(
+                mapOf(
+                    "status" to "delivered",
+                    "deliveredAt" to System.currentTimeMillis(),
+                    "deliveryPhotoUrl" to photoUrl
+                )
+            )
             .addOnSuccessListener {
                 updating = false
-                if (navigateAfter) {
-                    navController?.navigate("driver_delivery_summary/$parcelId")
-                }
+                navController?.navigate(routeDeliverySummary(parcelId))
             }
-            .addOnFailureListener {
-                updating = false
-            }
+            .addOnFailureListener { updating = false }
     }
 
-    // --------------------------------------------------
-    // UI LAYOUT
-    // --------------------------------------------------
     Scaffold(
         topBar = { TopAppBar(title = { Text("Delivery Task") }) }
     ) { paddingValues ->
-
         Column(
             modifier = Modifier
                 .padding(paddingValues)
@@ -101,53 +104,78 @@ fun DriverParcelDetailsScreen(
                 return@Column
             }
 
-            if (parcel == null) {
+            val data = parcel ?: run {
                 Text("Parcel not found.")
                 return@Column
             }
 
-            val data = parcel!!
-
             // --- PARCEL DETAILS ---
             Text("Parcel ID: ${data.id}", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(20.dp))
-
-            Text("Pickup Location: ${data.pickupAddress}")
-            Text("Dropoff Location: ${data.dropoffAddress}")
-            Text("Receiver: ${data.receiverName} (${data.receiverPhone})")
+            Spacer(Modifier.height(16.dp))
+            Text("Pickup: ${data.pickupAddress}")
+            Text("Dropoff: ${data.dropoffAddress}")
+            Text("Receiver: ${data.receiverName}")
             Text("Package: ${data.packageDetails}")
             Spacer(Modifier.height(16.dp))
-
             Text("Current Status: ${data.status}", style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
 
             // --- ACTION BUTTONS ---
             when (data.status.lowercase()) {
                 "pending" -> Button(
-                    onClick = { updateStatus("picked_up") },
+                    onClick = {
+                        db.collection("parcels").document(parcelId)
+                            .update("status", "picked_up")
+                    },
                     enabled = !updating,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Mark as Picked Up") }
 
                 "picked_up" -> Button(
-                    onClick = { updateStatus("in_transit") },
+                    onClick = {
+                        db.collection("parcels").document(parcelId)
+                            .update("status", "in_transit")
+                    },
                     enabled = !updating,
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Start Navigation / In Transit") }
 
-                "in_transit" -> Button(
-                    onClick = { updateStatus("delivered", navigateAfter = true) },
-                    enabled = !updating,
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text("Mark as Delivered") }
+                "in_transit" -> Column {
+                    Button(
+                        onClick = { photoLauncher.launch("image/*") },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Upload Delivery Photo") }
+
+                    selectedPhotoUri?.let { uri ->
+                        Spacer(Modifier.height(8.dp))
+                        // Show a preview
+                        Image(
+                            painter = painterResource(id = android.R.drawable.ic_menu_gallery),
+                            contentDescription = "Delivery photo preview",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            contentScale = ContentScale.Crop
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                // TODO: Upload to Cloudinary, get URL, then call updateStatusDelivered(url)
+                                // For now, simulate:
+                                val dummyCloudinaryUrl = "https://res.cloudinary.com/demo/image/upload/sample.jpg"
+                                updateStatusDelivered(dummyCloudinaryUrl)
+                            },
+                            enabled = !updating,
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Mark as Delivered") }
+                    }
+                }
             }
         }
     }
 }
 
-// --------------------------------------------------
-// PREVIEW
-// --------------------------------------------------
 @Preview(showBackground = true)
 @Composable
 fun PreviewDriverParcelDetailsScreen() {

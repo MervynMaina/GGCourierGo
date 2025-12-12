@@ -1,6 +1,5 @@
 package com.mervyn.ggcouriergo.ui.screens.auth
 
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,17 +7,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import com.google.accompanist.pager.*
-import com.mervyn.ggcouriergo.data.repository.OnboardingRepository
+import com.mervyn.ggcouriergo.data.OnboardingViewModel
+import com.mervyn.ggcouriergo.data.OnboardingViewModelFactory
+import com.mervyn.ggcouriergo.models.OnboardingPage
+import com.mervyn.ggcouriergo.models.OnboardingUIState
+import com.mervyn.ggcouriergo.repository.OnboardingRepository
 import kotlinx.coroutines.launch
-
-data class OnboardingPage(
-    val title: String,
-    val description: String
-)
 
 @OptIn(ExperimentalPagerApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -28,7 +28,7 @@ fun OnboardingScreen(
         factory = OnboardingViewModelFactory(OnboardingRepository())
     )
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState(initial = OnboardingUIState.Loading)
 
     val pages = listOf(
         OnboardingPage("Welcome to CourierGo", "Manage deliveries easily and reliably"),
@@ -124,8 +124,7 @@ fun OnboardingScreen(
                 }
 
                 is OnboardingUIState.Finished -> {
-                    // Navigate to LoginScreen
-                    LaunchedEffect(Unit) {
+                    LaunchedEffect(uiState) {
                         navController.navigate("login") {
                             popUpTo("onboarding") { inclusive = true }
                         }
@@ -139,5 +138,6 @@ fun OnboardingScreen(
 @Preview(showBackground = true)
 @Composable
 fun PreviewOnboardingScreen() {
-    OnboardingScreen(navController = NavController(null))
+    val navController = rememberNavController()
+    OnboardingScreen(navController = navController)
 }

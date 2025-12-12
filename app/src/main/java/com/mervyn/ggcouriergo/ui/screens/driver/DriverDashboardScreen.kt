@@ -12,27 +12,31 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.google.firebase.auth.FirebaseAuth
 import com.mervyn.ggcouriergo.data.DriverDashboardViewModel
 import com.mervyn.ggcouriergo.data.DriverDashboardViewModelFactory
 import com.mervyn.ggcouriergo.models.DriverDashboardUIState
 import com.mervyn.ggcouriergo.models.Parcel
 import com.mervyn.ggcouriergo.repository.ParcelRepository
+import com.mervyn.ggcouriergo.navigation.routeDriverParcelDetails
 import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
-import com.mervyn.ggcouriergo.navigation.driverParcelDetailsRoute
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriverDashboardScreen(
     navController: NavController,
-    driverId: String,
-    viewModel: DriverDashboardViewModel = viewModel(factory = DriverDashboardViewModelFactory(
-        ParcelRepository()
-    )
+    viewModel: DriverDashboardViewModel = viewModel(
+        factory = DriverDashboardViewModelFactory(ParcelRepository())
     )
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(Unit) { viewModel.loadAssignedParcels(driverId) }
+    // Logged in driver
+    val driverId = FirebaseAuth.getInstance().currentUser?.uid
+
+    LaunchedEffect(driverId) {
+        driverId?.let { viewModel.loadAssignedParcels(it) }
+    }
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Driver Dashboard") }) }
@@ -46,19 +50,23 @@ fun DriverDashboardScreen(
             Text("Welcome, Driver!", style = MaterialTheme.typography.headlineMedium)
             Spacer(Modifier.height(20.dp))
 
-            when (uiState) {
+            when (val state = uiState) {
+
                 is DriverDashboardUIState.Loading -> {
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
+
                 is DriverDashboardUIState.Error -> {
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text((uiState as DriverDashboardUIState.Error).message)
+                        Text(state.message)
                     }
                 }
+
                 is DriverDashboardUIState.Success -> {
-                    val parcels = (uiState as DriverDashboardUIState.Success).parcels
+                    val parcels = state.parcels
+
                     if (parcels.isEmpty()) {
                         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                             Text("No deliveries assigned yet.")
@@ -67,7 +75,7 @@ fun DriverDashboardScreen(
                         LazyColumn {
                             items(parcels) { parcel ->
                                 DriverParcelCard(parcel = parcel) {
-                                    navController.navigate(driverParcelDetailsRoute(parcel.id))
+                                    navController.navigate(routeDriverParcelDetails(parcel.id))
                                 }
                             }
                         }
@@ -104,6 +112,6 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
 fun PreviewDriverDashboardScreen() {
     val navController = rememberNavController()
     CourierGoTheme {
-        DriverDashboardScreen(navController, driverId = "123")
+        DriverDashboardScreen(navController)
     }
 }

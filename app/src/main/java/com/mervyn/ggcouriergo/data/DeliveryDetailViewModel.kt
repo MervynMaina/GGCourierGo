@@ -11,22 +11,25 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-class DeliveryDetailViewModel(private val parcelId: String) : ViewModel() {
+class DeliveryDetailViewModel(private val deliveryId: String) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<DeliveryDetailUIState>(DeliveryDetailUIState.Loading)
+    private val _uiState =
+        MutableStateFlow<DeliveryDetailUIState>(DeliveryDetailUIState.Loading)
     val uiState: StateFlow<DeliveryDetailUIState> = _uiState
 
     private val db = FirebaseFirestore.getInstance()
 
     init {
-        loadParcel()
+        loadDelivery()
     }
 
-    private fun loadParcel() {
+    private fun loadDelivery() {
         _uiState.value = DeliveryDetailUIState.Loading
+
         viewModelScope.launch {
             try {
-                val doc = db.collection("parcels").document(parcelId).get().await()
+                val doc = db.collection("deliveries").document(deliveryId).get().await()
+
                 if (doc.exists()) {
                     val detail = DeliveryDetail(
                         id = doc.id,
@@ -40,21 +43,26 @@ class DeliveryDetailViewModel(private val parcelId: String) : ViewModel() {
                         assignedDriver = doc.getString("assignedDriver")
                     )
                     _uiState.value = DeliveryDetailUIState.Success(detail)
+
                 } else {
-                    _uiState.value = DeliveryDetailUIState.Error("Parcel not found")
+                    _uiState.value =
+                        DeliveryDetailUIState.Error("Delivery record not found")
                 }
+
             } catch (e: Exception) {
-                _uiState.value = DeliveryDetailUIState.Error(e.message ?: "Failed to load parcel")
+                _uiState.value =
+                    DeliveryDetailUIState.Error(e.message ?: "Failed to load delivery details")
             }
         }
     }
 }
 
-class DeliveryDetailViewModelFactory(private val parcelId: String) : ViewModelProvider.Factory {
+class DeliveryDetailViewModelFactory(private val deliveryId: String) :
+    ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(DeliveryDetailViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return DeliveryDetailViewModel(parcelId) as T
+            return DeliveryDetailViewModel(deliveryId) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

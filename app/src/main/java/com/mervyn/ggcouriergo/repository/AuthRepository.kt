@@ -3,8 +3,8 @@ package com.mervyn.ggcouriergo.repository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
-import com.mervyn.ggcouriergo.ui.screens.auth.LoginUIState
-import com.mervyn.ggcouriergo.ui.screens.auth.RegisterUIState
+import com.mervyn.ggcouriergo.models.LoginUIState
+import com.mervyn.ggcouriergo.models.RegisterUIState
 
 class AuthRepository {
 
