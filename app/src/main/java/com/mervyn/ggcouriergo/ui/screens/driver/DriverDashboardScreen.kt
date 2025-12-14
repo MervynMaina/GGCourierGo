@@ -19,12 +19,14 @@ import com.mervyn.ggcouriergo.models.DriverDashboardUIState
 import com.mervyn.ggcouriergo.models.Parcel
 import com.mervyn.ggcouriergo.repository.ParcelRepository
 import com.mervyn.ggcouriergo.navigation.routeDriverParcelDetails
-import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
+// --- CORRECTED THEME IMPORT ---
+import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriverDashboardScreen(
     navController: NavController,
+    modifier: Modifier = Modifier,
     viewModel: DriverDashboardViewModel = viewModel(
         factory = DriverDashboardViewModelFactory(ParcelRepository())
     )
@@ -60,7 +62,7 @@ fun DriverDashboardScreen(
 
                 is DriverDashboardUIState.Error -> {
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text(state.message)
+                        Text(state.message, color = MaterialTheme.colorScheme.error) // Use theme error color
                     }
                 }
 
@@ -68,7 +70,7 @@ fun DriverDashboardScreen(
                     val parcels = state.parcels
 
                     if (parcels.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp), contentAlignment = Alignment.Center) {
                             Text("No deliveries assigned yet.")
                         }
                     } else {
@@ -92,10 +94,11 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
+        onClick = onClick, // Make the entire card clickable
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Parcel: ${parcel.id}", style = MaterialTheme.typography.titleMedium)
+            Text("Parcel ID: ${parcel.id}", style = MaterialTheme.typography.titleMedium)
             Text("Pickup: ${parcel.pickupAddress}")
             Text("Dropoff: ${parcel.dropoffAddress}")
             Text("Receiver: ${parcel.receiverName}")
@@ -111,7 +114,8 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
 @Composable
 fun PreviewDriverDashboardScreen() {
     val navController = rememberNavController()
-    CourierGoTheme {
+    // --- CORRECTED THEME USAGE ---
+    GGCourierGoTheme {
         DriverDashboardScreen(navController)
     }
 }

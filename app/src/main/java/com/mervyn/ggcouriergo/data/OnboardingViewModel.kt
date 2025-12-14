@@ -1,6 +1,5 @@
 package com.mervyn.ggcouriergo.data
 
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -15,9 +14,10 @@ class OnboardingViewModel(private val repository: OnboardingRepository) : ViewMo
     private val _uiState = MutableStateFlow<OnboardingUIState>(OnboardingUIState.Loading)
     val uiState: StateFlow<OnboardingUIState> = _uiState
 
-    fun completeOnboarding(userId: String) {
+    // Removed userId parameter as it's not needed for local onboarding flag
+    fun completeOnboarding() {
         viewModelScope.launch {
-            repository.completeOnboarding(userId)
+            repository.completeOnboarding()
             _uiState.value = OnboardingUIState.Finished
         }
     }

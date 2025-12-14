@@ -13,7 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import com.mervyn.ggcouriergo.data.DeliveryDetailViewModel
 import com.mervyn.ggcouriergo.data.DeliveryDetailViewModelFactory
 import com.mervyn.ggcouriergo.models.DeliveryDetailUIState
-import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
+import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,7 +80,7 @@ fun DeliveryDetailsScreen(
 @Composable
 fun PreviewDeliveryDetailsScreen() {
     val navController = rememberNavController()
-    CourierGoTheme {
+    GGCourierGoTheme {
         DeliveryDetailsScreen(
             navController = navController,
             deliveryId = "DEL123"

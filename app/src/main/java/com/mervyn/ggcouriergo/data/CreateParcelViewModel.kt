@@ -16,14 +16,23 @@ class CreateParcelViewModel(private val repository: ParcelRepository) : ViewMode
     val uiState: StateFlow<CreateParcelUIState> = _uiState
 
     fun createParcel(parcel: Parcel) {
+        // --- INPUT VALIDATION (Added for robustness) ---
+        if (parcel.senderName.isBlank() || parcel.receiverName.isBlank() ||
+            parcel.pickupAddress.isBlank() || parcel.dropoffAddress.isBlank() ||
+            parcel.packageDetails.isBlank()) {
+            _uiState.value = CreateParcelUIState.Error("All fields (Names, Addresses, Details) must be filled.")
+            return
+        }
+        // ----------------------------------------------
+
         _uiState.value = CreateParcelUIState.Loading
         viewModelScope.launch {
             try {
-                val success = repository.addParcel(parcel)
+                val success = repository.addParcel(parcel.copy(status = "pending", createdAt = System.currentTimeMillis()))
                 if (success) _uiState.value = CreateParcelUIState.Success
-                else _uiState.value = CreateParcelUIState.Error("Failed to create parcel")
+                else _uiState.value = CreateParcelUIState.Error("Failed to create parcel in database.")
             } catch (e: Exception) {
-                _uiState.value = CreateParcelUIState.Error(e.message ?: "Error creating parcel")
+                _uiState.value = CreateParcelUIState.Error(e.message ?: "Network or internal error creating parcel.")
             }
         }
     }

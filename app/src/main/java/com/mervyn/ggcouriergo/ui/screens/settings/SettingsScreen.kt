@@ -7,17 +7,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.auth.FirebaseAuth
-import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
+import com.mervyn.ggcouriergo.data.SettingsViewModel
+import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme // Assuming the theme name is GGCourierGoTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(navController: NavController? = null) {
-
-    val auth = FirebaseAuth.getInstance()
-    var darkThemeEnabled by remember { mutableStateOf(false) }
+fun SettingsScreen(
+    navController: NavController,
+    viewModel: SettingsViewModel = viewModel()
+) {
+    // Collect the theme state from the ViewModel
+    val darkThemeEnabled by viewModel.isDarkTheme.collectAsState()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Settings") }) }
@@ -39,28 +42,26 @@ fun SettingsScreen(navController: NavController? = null) {
                 Spacer(Modifier.weight(1f))
                 Switch(
                     checked = darkThemeEnabled,
-                    onCheckedChange = { darkThemeEnabled = it }
+                    onCheckedChange = viewModel::toggleDarkTheme // Update state via ViewModel
                 )
             }
-            Spacer(Modifier.height(24.dp))
+            Divider(Modifier.padding(vertical = 12.dp))
 
             // --- NAVIGATE TO PROFILE ---
             Button(
-                onClick = { navController?.navigate("profile") },
-                modifier = Modifier.fillMaxWidth()
+                onClick = { navController.navigate("profile") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
             ) {
-                Text("Edit Profile")
+                Text("Edit Profile", color = MaterialTheme.colorScheme.onTertiary)
             }
+            Spacer(Modifier.height(16.dp))
+            Divider()
             Spacer(Modifier.height(16.dp))
 
             // --- LOG OUT BUTTON ---
             Button(
-                onClick = {
-                    auth.signOut()
-                    navController?.navigate("login") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                },
+                onClick = { viewModel.logout(navController) }, // Handle logout via ViewModel
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
             ) {
@@ -74,7 +75,8 @@ fun SettingsScreen(navController: NavController? = null) {
 @Composable
 fun PreviewSettingsScreen() {
     val navController = rememberNavController()
-    CourierGoTheme {
+    // FIX: Using the assumed correct theme name GGCourierGoTheme
+    GGCourierGoTheme {
         SettingsScreen(navController)
     }
 }

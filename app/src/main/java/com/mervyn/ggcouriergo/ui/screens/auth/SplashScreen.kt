@@ -15,6 +15,8 @@ import com.mervyn.ggcouriergo.data.SplashViewModelFactory
 import com.mervyn.ggcouriergo.models.SplashUIState
 import com.mervyn.ggcouriergo.models.UserRole
 import com.mervyn.ggcouriergo.repository.SplashRepository
+import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
+import com.mervyn.ggcouriergo.ui.theme.GGColors // Import for direct color access (e.g., GraySurface)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,39 +28,82 @@ fun SplashScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState(initial = SplashUIState.Loading)
 
-    Scaffold { paddingValues ->
+    // Use Surface and set the background color to the primary brand green
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.primary
+    ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
+            modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             when (uiState) {
                 is SplashUIState.Loading -> {
-                    CircularProgressIndicator()
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        // Branding: "GG" Logo Placeholder
+                        Text(
+                            text = "GG",
+                            style = MaterialTheme.typography.displayLarge.copy(
+                                color = MaterialTheme.colorScheme.onPrimary // White text
+                            ),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        // Branding: App Name
+                        Text(
+                            text = "GreenGiant Courier Go",
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                color = MaterialTheme.colorScheme.onPrimary // White text
+                            )
+                        )
+                        Spacer(Modifier.height(32.dp))
+
+                        // Loading Indicator (using White color for contrast)
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 4.dp
+                        )
+                    }
                 }
+
                 is SplashUIState.Success -> {
-                    LaunchedEffect(uiState) {
+                    // CRITICAL FLOW FIX: LaunchedEffect keyed on Unit ensures navigation only happens once.
+                    LaunchedEffect(Unit) {
                         when ((uiState as SplashUIState.Success).role) {
-                            UserRole.ADMIN -> navController.navigate("home") { popUpTo("splash") { inclusive = true } }
+                            UserRole.ADMIN -> navController.navigate("adminhome") { popUpTo("splash") { inclusive = true } }
                             UserRole.DISPATCHER -> navController.navigate("dispatcher_dashboard") { popUpTo("splash") { inclusive = true } }
                             UserRole.DRIVER -> navController.navigate("driver_dashboard") { popUpTo("splash") { inclusive = true } }
                             UserRole.NEW_USER -> navController.navigate("onboarding") { popUpTo("splash") { inclusive = true } }
                         }
                     }
                 }
+
                 is SplashUIState.Error -> {
+                    // Themed Error state
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier.padding(32.dp),
+                        verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "Error: ${(uiState as SplashUIState.Error).message}",
-                            color = MaterialTheme.colorScheme.error
+                            text = "Connection Failed",
+                            style = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onPrimary),
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(onClick = { viewModel.retryCheckUserRole() }) {
-                            Text("Retry")
+                        Text(
+                            text = (uiState as SplashUIState.Error).message,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                        Button(
+                            onClick = { viewModel.retryCheckUserRole() },
+                            // Use GraySurface for the button background to stand out on the green splash background
+                            colors = ButtonDefaults.buttonColors(containerColor = GGColors.GraySurface)
+                        ) {
+                            Text("RETRY", color = MaterialTheme.colorScheme.primary) // Green text on gray button
                         }
                     }
                 }
@@ -67,39 +112,22 @@ fun SplashScreen(
     }
 }
 
-@Preview(showBackground = true)
+// Simplified Preview Function for design-time checking
+@Preview(showBackground = true, name = "Splash Screen - Loading")
 @Composable
-fun PreviewSplashScreenStates() {
+fun SimpleSplashScreenPreview() {
     val navController = rememberNavController()
+    // Mock a simple ViewModel that always shows the Loading state
+    val mockViewModel = object : SplashViewModel(SplashRepository()) {
+        init { _uiState.value = SplashUIState.Loading }
+        override fun retryCheckUserRole() {}
+    }
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("Loading State", style = MaterialTheme.typography.titleMedium)
+    // Ensure the unified GGCourierGoTheme is applied
+    GGCourierGoTheme {
         SplashScreen(
             navController = navController,
-            viewModel = object : SplashViewModel(SplashRepository()) {
-                init { _uiState.value = SplashUIState.Loading }
-                override fun retryCheckUserRole() {}
-            }
-        )
-        Spacer(Modifier.height(24.dp))
-
-        Text("Success State", style = MaterialTheme.typography.titleMedium)
-        SplashScreen(
-            navController = navController,
-            viewModel = object : SplashViewModel(SplashRepository()) {
-                init { _uiState.value = SplashUIState.Success(UserRole.DRIVER) }
-                override fun retryCheckUserRole() {}
-            }
-        )
-        Spacer(Modifier.height(24.dp))
-
-        Text("Error State", style = MaterialTheme.typography.titleMedium)
-        SplashScreen(
-            navController = navController,
-            viewModel = object : SplashViewModel(SplashRepository()) {
-                init { _uiState.value = SplashUIState.Error("Failed to fetch role") }
-                override fun retryCheckUserRole() {}
-            }
+            viewModel = mockViewModel
         )
     }
 }

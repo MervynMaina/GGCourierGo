@@ -20,13 +20,18 @@ class DriverParcelRepository {
                 receiverName = doc.getString("receiverName") ?: "",
                 receiverPhone = doc.getString("receiverPhone") ?: "",
                 packageDetails = doc.getString("packageDetails") ?: "",
-                status = doc.getString("status") ?: ""
+                status = doc.getString("status") ?: "",
+                // NEW: Map the delivery details
+                deliveredAt = doc.getLong("deliveredAt"),
+                deliveryPhotoUrl = doc.getString("deliveryPhotoUrl")
             )
         } catch (e: Exception) {
             null
         }
     }
 
+    // NOTE: This repository needs an update status method that accepts the photo URL,
+    // but for now, we leave the simple one as the screen simulates the URL.
     suspend fun updateStatus(parcelId: String, newStatus: String): Boolean {
         return try {
             db.collection("parcels").document(parcelId)

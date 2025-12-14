@@ -4,9 +4,10 @@ import kotlinx.coroutines.delay
 
 class OnboardingRepository {
 
-    // Simulate saving onboarding completion flag
-    suspend fun completeOnboarding(userId: String) {
-        // Could write to Firestore or DataStore
-        delay(500) // simulate network/database write
+    // Simulating saving the onboarding completion flag locally.
+    // This function should eventually write a simple boolean to DataStore or SharedPreferences.
+    suspend fun completeOnboarding() {
+        // Example: context.dataStore.edit { preferences -> preferences[ONBOARDING_KEY] = true }
+        delay(500) // simulate local write delay
     }
 }

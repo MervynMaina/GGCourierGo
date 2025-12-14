@@ -5,51 +5,38 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
+import com.mervyn.ggcouriergo.data.DriverShiftViewModel
+import com.mervyn.ggcouriergo.data.DriverShiftViewModelFactory
+import com.mervyn.ggcouriergo.models.DriverShiftUIState
+import com.mervyn.ggcouriergo.repository.DriverShiftRepository
+import java.util.concurrent.TimeUnit
+import com.mervyn.ggcouriergo.navigation.ROUT_DRIVER_DASHBOARD // For navigation
+
+// Helper to format milliseconds to H:MM:SS
+private fun formatTime(ms: Long): String {
+    val seconds = TimeUnit.MILLISECONDS.toSeconds(ms) % 60
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(ms) % 60
+    val hours = TimeUnit.MILLISECONDS.toHours(ms)
+    return String.format("%02d:%02d:%02d", hours, minutes, seconds)
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DriverShiftScreen(navController: NavController? = null) {
-
-    val auth = FirebaseAuth.getInstance()
-    val db = FirebaseFirestore.getInstance()
-
-    var isOnShift by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    val uid = auth.currentUser?.uid
-
-    // Load shift status from Firestore
-    LaunchedEffect(uid) {
-        if (uid != null) {
-            val docRef = db.collection("drivers").document(uid)
-            docRef.get()
-                .addOnSuccessListener { doc ->
-                    isOnShift = doc?.getBoolean("onShift") ?: false
-                    isLoading = false
-                }
-                .addOnFailureListener {
-                    isLoading = false
-                }
-        } else {
-            isLoading = false
-        }
-    }
-
-    // Update shift status
-    fun updateShiftStatus(startShift: Boolean) {
-        if (uid != null) {
-            db.collection("drivers").document(uid)
-                .update("onShift", startShift)
-                .addOnSuccessListener { isOnShift = startShift }
-        }
-    }
+fun DriverShiftScreen(
+    navController: NavController,
+    viewModel: DriverShiftViewModel = viewModel(
+        factory = DriverShiftViewModelFactory(DriverShiftRepository())
+    )
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val now = remember { System.currentTimeMillis() } // Time reference for running clock
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Driver Shift") }) }
@@ -62,41 +49,71 @@ fun DriverShiftScreen(navController: NavController? = null) {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            when (val state = uiState) {
+                is DriverShiftUIState.Loading -> {
+                    CircularProgressIndicator()
+                }
+                is DriverShiftUIState.Error -> {
+                    Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+                }
+                is DriverShiftUIState.Success -> {
+                    val shift = state.shift
+                    val runningDuration = if (shift.isActive && shift.shiftStartTime != null) {
+                        // Calculate live running time using current system time
+                        System.currentTimeMillis() - shift.shiftStartTime
+                    } else {
+                        0L
+                    }
+                    val currentShiftTime = shift.accumulatedTime + runningDuration
 
-            if (isLoading) {
-                CircularProgressIndicator()
-                return@Column
-            }
+                    Spacer(Modifier.height(32.dp))
 
-            Text(
-                "Current Shift Status:",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            Spacer(Modifier.height(16.dp))
+                    Text(
+                        if (shift.isActive) "SHIFT CLOCKED IN" else "SHIFT OFF DUTY",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = if (shift.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        )
+                    )
 
-            Text(
-                if (isOnShift) "ON DUTY" else "OFF DUTY",
-                style = MaterialTheme.typography.titleLarge,
-                color = if (isOnShift) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-            )
+                    Spacer(Modifier.height(24.dp))
 
-            Spacer(Modifier.height(24.dp))
+                    // Clock Display Card
+                    Card(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text("Total Time Today", style = MaterialTheme.typography.titleMedium)
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                formatTime(currentShiftTime),
+                                style = MaterialTheme.typography.headlineLarge.copy(
+                                    fontWeight = FontWeight.Black,
+                                    color = if (shift.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            )
+                        }
+                    }
 
-            Button(
-                onClick = { updateShiftStatus(!isOnShift) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (isOnShift) "End Shift" else "Start Shift")
+                    Spacer(Modifier.height(32.dp))
+
+                    // Toggle Button
+                    Button(
+                        onClick = viewModel::toggleShift,
+                        modifier = Modifier.fillMaxWidth().height(60.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (shift.isActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Text(
+                            if (shift.isActive) "CLOCK OUT" else "CLOCK IN",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                    }
+                }
             }
         }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewDriverShiftScreen() {
-    val navController = rememberNavController()
-    CourierGoTheme {
-        DriverShiftScreen(navController)
     }
 }

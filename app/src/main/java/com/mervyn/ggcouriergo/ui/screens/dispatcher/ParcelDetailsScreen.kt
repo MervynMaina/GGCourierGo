@@ -1,58 +1,242 @@
 package com.mervyn.ggcouriergo.ui.screens.dispatcher
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
+import com.mervyn.ggcouriergo.data.ParcelDetailsViewModel
+import com.mervyn.ggcouriergo.data.ParcelDetailsViewModelFactory
+import com.mervyn.ggcouriergo.models.Driver
+import com.mervyn.ggcouriergo.models.Parcel
+import com.mervyn.ggcouriergo.models.ParcelDetailsUIState
+import com.mervyn.ggcouriergo.repository.DriverRepository
+import com.mervyn.ggcouriergo.repository.ParcelRepository
+import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ParcelDetailsScreen(
-    navController: NavController? = null,
-    parcelId: String = "123"
+    navController: NavController,
+    parcelId: String,
+    viewModel: ParcelDetailsViewModel = viewModel(
+        factory = ParcelDetailsViewModelFactory(ParcelRepository(), DriverRepository())
+    )
 ) {
+    val uiState by viewModel.uiState.collectAsState()
+    val scrollState = rememberScrollState()
+
+    // 1. Load data on first launch
+    LaunchedEffect(parcelId) {
+        viewModel.loadParcelDetails(parcelId)
+    }
+
+    // 2. Local state for driver selection
+    var expanded by remember { mutableStateOf(false) }
+    var selectedDriver by remember { mutableStateOf<Driver?>(null) }
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Parcel Details") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("Parcel: $parcelId") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .padding(paddingValues)
                 .padding(16.dp)
                 .fillMaxSize()
+                .verticalScroll(scrollState)
         ) {
-            Text("Parcel ID: $parcelId", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(20.dp))
-
-            Text("Sender: -")
-            Text("Receiver: -")
-            Text("Pickup Address: -")
-            Text("Dropoff Address: -")
-            Text("Package Details: -")
-            Text("Assigned Driver: -")
-            Text("Status: -")
-
-            Spacer(Modifier.height(24.dp))
-
-            Button(
-                onClick = { /* TODO: Navigate to edit parcel or update status */ },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Edit Parcel")
+            // --- UI STATE HANDLING ---
+            when (val state = uiState) {
+                is ParcelDetailsUIState.Loading -> {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Spacer(Modifier.height(20.dp))
+                    Text("Loading parcel and available drivers...")
+                }
+                is ParcelDetailsUIState.Error -> {
+                    Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.titleLarge)
+                    Spacer(Modifier.height(20.dp))
+                    Button(onClick = { viewModel.loadParcelDetails(parcelId) }) {
+                        Text("Retry Load")
+                    }
+                }
+                is ParcelDetailsUIState.AssignmentSuccess -> {
+                    Text("Assignment Successful!", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(10.dp))
+                    // Automatically reload the details to show the assigned status
+                    LaunchedEffect(Unit) {
+                        viewModel.loadParcelDetails(parcelId)
+                    }
+                }
+                is ParcelDetailsUIState.Success -> {
+                    DisplayParcelDetails(parcel = state.data.parcel)
+                    Spacer(Modifier.height(32.dp))
+                    DriverAssignmentSection(
+                        parcel = state.data.parcel,
+                        availableDrivers = state.data.availableDrivers,
+                        selectedDriver = selectedDriver,
+                        onDriverSelected = { selectedDriver = it },
+                        onAssignClicked = { driver ->
+                            viewModel.assignDriverToParcel(state.data.parcel.id, driver.id)
+                        }
+                    )
+                }
+                else -> {
+                    Text("Ready to load data.")
+                }
             }
         }
     }
 }
 
+// Helper Composable to display core parcel data
+@Composable
+fun DisplayParcelDetails(parcel: Parcel) {
+    Text("Parcel Details", style = MaterialTheme.typography.headlineSmall)
+    Spacer(Modifier.height(10.dp))
+    DetailRow(label = "ID", value = parcel.id)
+    DetailRow(label = "Status", value = parcel.status.uppercase())
+    Divider(Modifier.padding(vertical = 8.dp))
+    DetailRow(label = "Sender", value = parcel.senderName)
+    DetailRow(label = "Receiver", value = parcel.receiverName)
+    Divider(Modifier.padding(vertical = 8.dp))
+    DetailRow(label = "Pickup", value = parcel.pickupAddress)
+    DetailRow(label = "Dropoff", value = parcel.dropoffAddress)
+    DetailRow(label = "Package Info", value = parcel.packageDetails)
+    DetailRow(label = "Assigned Driver", value = parcel.assignedDriver ?: "UNASSIGNED", isAssigned = parcel.assignedDriver != null)
+}
+
+// Helper Composable for assignment logic
+@Composable
+fun DriverAssignmentSection(
+    parcel: Parcel,
+    availableDrivers: List<Driver>,
+    selectedDriver: Driver?,
+    onDriverSelected: (Driver?) -> Unit,
+    onAssignClicked: (Driver) -> Unit
+) {
+    val isAssigned = parcel.assignedDriver != null
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = if (isAssigned) "Driver: ${parcel.assignedDriver}" else "Assign a Driver",
+                style = MaterialTheme.typography.titleLarge,
+                color = if (isAssigned) MaterialTheme.colorScheme.primary else LocalContentColor.current
+            )
+
+            if (!isAssigned) {
+                Spacer(Modifier.height(16.dp))
+                if (availableDrivers.isEmpty()) {
+                    Text("No drivers currently available for assignment.", color = MaterialTheme.colorScheme.error)
+                } else {
+                    DriverDropdown(
+                        drivers = availableDrivers,
+                        selectedDriver = selectedDriver,
+                        onDriverSelected = onDriverSelected
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Button(
+                        onClick = { selectedDriver?.let(onAssignClicked) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = selectedDriver != null
+                    ) {
+                        Text("Assign Driver")
+                    }
+                }
+            } else {
+                Spacer(Modifier.height(16.dp))
+                Text("This parcel is currently in transit/assigned.")
+            }
+        }
+    }
+}
+
+// Helper for displaying a single detail row
+@Composable
+fun DetailRow(label: String, value: String, isAssigned: Boolean = false) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (isAssigned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+
+// Helper for the driver selection dropdown
+@Composable
+fun DriverDropdown(
+    drivers: List<Driver>,
+    selectedDriver: Driver?,
+    onDriverSelected: (Driver?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth().height(56.dp),
+        onClick = { expanded = true }
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(selectedDriver?.name ?: "Select Driver", color = LocalContentColor.current)
+            Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            drivers.forEach { driver ->
+                DropdownMenuItem(
+                    text = { Text("${driver.name} (${driver.status.name})") },
+                    onClick = {
+                        onDriverSelected(driver)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+
 @Preview(showBackground = true)
 @Composable
 fun PreviewParcelDetailsScreen() {
     val navController = rememberNavController()
-    CourierGoTheme {
-        ParcelDetailsScreen(navController)
+    // CORRECTED THEME USAGE
+    GGCourierGoTheme {
+        ParcelDetailsScreen(navController, parcelId = "GG-45678")
     }
 }

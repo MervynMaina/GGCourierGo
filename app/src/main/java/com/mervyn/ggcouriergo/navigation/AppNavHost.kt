@@ -1,13 +1,15 @@
 package com.mervyn.ggcouriergo.navigation
 
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.mervyn.ggcouriergo.ui.screens.admin.AdminDashboardScreen
-import com.mervyn.ggcouriergo.ui.screens.auth.DispatcherDashboardScreen
+import com.mervyn.ggcouriergo.ui.screens.admin.AdminHomeScreen
+import com.mervyn.ggcouriergo.ui.screens.dispatcher.DispatcherDashboardScreen
 import com.mervyn.ggcouriergo.ui.screens.auth.LoginScreen
 import com.mervyn.ggcouriergo.ui.screens.auth.RegisterScreen
 import com.mervyn.ggcouriergo.ui.screens.auth.SplashScreen
@@ -18,6 +20,9 @@ import com.mervyn.ggcouriergo.ui.screens.driver.*
 import com.mervyn.ggcouriergo.ui.screens.delivery.DeliveryDetailsScreen
 import com.mervyn.ggcouriergo.ui.screens.profile.ProfileScreen
 import com.mervyn.ggcouriergo.ui.screens.settings.SettingsScreen
+// IMPORT THE FINAL USER SCREEN
+import com.mervyn.ggcouriergo.ui.screens.driver.UserDashboardScreen
+import com.mervyn.ggcouriergo.ui.screens.main.MainAppScaffold
 
 @Composable
 fun AppNavHost(
@@ -39,11 +44,22 @@ fun AppNavHost(
         composable(ROUT_REGISTER) { RegisterScreen(navController) }
 
         // ---------------------------------------------------
-        // Dashboards
+        // Global App Scaffold (The true landing page after auth)
+        // ---------------------------------------------------
+        composable(ROUT_MAIN_APP) { MainAppScaffold(navController) }
+
+        // ---------------------------------------------------
+        // Dashboards (Role-Based Entry Points)
         // ---------------------------------------------------
         composable(ROUT_DRIVER_DASHBOARD) { DriverDashboardScreen(navController) }
         composable(ROUT_DISPATCHER_DASHBOARD) { DispatcherDashboardScreen(navController) }
-        composable(ROUT_ADMIN_DASHBOARD) { AdminDashboardScreen(navController) }
+        composable(ROUT_ADMIN_DASHBOARD) { AdminHomeScreen(
+            navController,
+            Modifier.fillMaxSize()
+        ) }
+        // NEW: Add the main customer entry point (User Dashboard)
+        composable(ROUT_USER_DASHBOARD) { UserDashboardScreen(navController) }
+
 
         // ---------------------------------------------------
         // Parcel / Delivery Screens
@@ -56,21 +72,22 @@ fun AppNavHost(
             ParcelDetailsScreen(navController, parcelId)
         }
 
-        // Driver parcel details
+        // Driver parcel details (P3.2)
         composable("$ROUT_DRIVER_PARCEL_DETAILS/{parcelId}") { backStackEntry ->
             val parcelId = backStackEntry.arguments?.getString("parcelId") ?: "unknown"
             DriverParcelDetailsScreen(navController, parcelId)
         }
 
-        // Delivery details (correct parameter = deliveryId)
-        composable("$ROUT_DELIVERY_DETAILS/{deliveryId}") { backStackEntry ->
-            val deliveryId = backStackEntry.arguments?.getString("deliveryId") ?: "unknown"
-            DeliveryDetailsScreen(navController, deliveryId)
-        }
-
+        // Delivery summary (P3.3)
         composable("$ROUT_DELIVERY_SUMMARY/{parcelId}") { backStackEntry ->
             val parcelId = backStackEntry.arguments?.getString("parcelId") ?: "unknown"
             DeliverySummaryScreen(navController, parcelId)
+        }
+
+        // Generic Delivery details (retaining for other uses)
+        composable("$ROUT_DELIVERY_DETAILS/{deliveryId}") { backStackEntry ->
+            val deliveryId = backStackEntry.arguments?.getString("deliveryId") ?: "unknown"
+            DeliveryDetailsScreen(navController, deliveryId)
         }
 
         // ---------------------------------------------------
@@ -85,11 +102,12 @@ fun AppNavHost(
         composable(ROUT_SETTINGS) { SettingsScreen(navController) }
 
         // ---------------------------------------------------
-        // Tracking
+        // Tracking (P4.1)
         // ---------------------------------------------------
-        composable("$ROUT_TRACKING/{parcelId}") { backStackEntry ->
-            val parcelId = backStackEntry.arguments?.getString("parcelId") ?: "unknown"
-            TrackingScreen(navController, parcelId)
-        }
+        // FIX: The UserDashboardScreen handles the tracking input, so we use the non-parameterized route.
+        // If the route must be parameterized, we link to the UserDashboard.
+        composable(ROUT_TRACKING) { UserDashboardScreen(navController) }
+        // Note: The previous parameterized tracking route is removed as the UserDashboard handles the input.
+        // If you need a deep link, the Tracking route should be used without parameters in the Composable call.
     }
 }

@@ -1,52 +1,25 @@
 package com.mervyn.ggcouriergo.ui.screens.profile
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.mervyn.ggcouriergo.models.UserProfile
-import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
+import com.mervyn.ggcouriergo.data.ProfileViewModel
+import com.mervyn.ggcouriergo.models.ProfileUIState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(navController: NavController? = null) {
-
-    val auth = FirebaseAuth.getInstance()
-    val db = FirebaseFirestore.getInstance()
-
-    var profile by remember { mutableStateOf<UserProfile?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    // Load current user profile
-    LaunchedEffect(auth.currentUser?.uid) {
-        val uid = auth.currentUser?.uid
-        if (uid != null) {
-            db.collection("users").document(uid)
-                .get()
-                .addOnSuccessListener { doc ->
-                    if (doc != null && doc.exists()) {
-                        profile = UserProfile(
-                            email = doc.getString("email") ?: "",
-                            role = doc.getString("role") ?: "",
-                            name = doc.getString("name") ?: ""
-                        )
-                    }
-                    isLoading = false
-                }
-                .addOnFailureListener {
-                    isLoading = false
-                }
-        } else {
-            isLoading = false
-        }
-    }
+fun ProfileScreen(
+    navController: NavController,
+    viewModel: ProfileViewModel = viewModel()
+) {
+    val uiState by viewModel.uiState.collectAsState()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("Profile") }) }
@@ -56,52 +29,61 @@ fun ProfileScreen(navController: NavController? = null) {
                 .padding(paddingValues)
                 .padding(16.dp)
                 .fillMaxSize(),
-            verticalArrangement = Arrangement.Top
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            when (val state = uiState) {
+                is ProfileUIState.Loading -> {
+                    Spacer(Modifier.height(100.dp))
                     CircularProgressIndicator()
                 }
-                return@Column
+                is ProfileUIState.Error -> {
+                    Spacer(Modifier.height(100.dp))
+                    Text("Error loading profile: ${state.message}", color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { viewModel.loadProfile() }) { Text("Retry") }
+                }
+                is ProfileUIState.Success -> {
+                    ProfileContent(user = state.profile)
+                }
             }
 
-            if (profile == null) {
-                Text("Profile information not available.")
-                return@Column
-            }
-
-            val user = profile!!
-
-            // --- DISPLAY USER INFO ---
-            Text("Name: ${user.name}", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(12.dp))
-            Text("Email: ${user.email}", style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.height(8.dp))
-            Text("Role: ${user.role}", style = MaterialTheme.typography.bodyLarge)
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(32.dp))
 
             // --- LOG OUT BUTTON ---
             Button(
-                onClick = {
-                    auth.signOut()
-                    navController?.navigate("login") {
-                        popUpTo("login") { inclusive = true }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
+                onClick = { viewModel.logout(navController) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
             ) {
-                Text("Log Out")
+                Text("Log Out", color = MaterialTheme.colorScheme.onError)
             }
         }
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun PreviewProfileScreen() {
-    val navController = rememberNavController()
-    CourierGoTheme {
-        ProfileScreen(navController)
+fun ProfileContent(user: com.mervyn.ggcouriergo.models.UserProfile) {
+    Icon(
+        Icons.Filled.Person,
+        contentDescription = "Profile Icon",
+        modifier = Modifier.size(96.dp).padding(top = 16.dp),
+        tint = MaterialTheme.colorScheme.primary
+    )
+    Spacer(Modifier.height(24.dp))
+
+    ProfileDetailRow(label = "Name", value = user.name)
+    ProfileDetailRow(label = "Email", value = user.email)
+    ProfileDetailRow(label = "Role", value = user.role)
+}
+
+@Composable
+fun ProfileDetailRow(label: String, value: String) {
+    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(value, style = MaterialTheme.typography.bodyLarge)
+        }
     }
 }

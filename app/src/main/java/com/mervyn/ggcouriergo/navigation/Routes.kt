@@ -14,6 +14,7 @@ const val ROUT_REGISTER = "register"
 const val ROUT_DRIVER_DASHBOARD = "driver_dashboard"
 const val ROUT_DISPATCHER_DASHBOARD = "dispatcher_dashboard"
 const val ROUT_ADMIN_DASHBOARD = "admin_dashboard"
+const val ROUT_USER_DASHBOARD = "user_dashboard" // ADDED: Main entry point for customers
 
 // -------------------------------
 // Parcel / Delivery
@@ -37,9 +38,14 @@ const val ROUT_PROFILE = "profile"
 const val ROUT_SETTINGS = "settings"
 
 // -------------------------------
+// Global App Scaffold
+// -------------------------------
+const val ROUT_MAIN_APP = "main_app_scaffold"
+
+// -------------------------------
 // Tracking
 // -------------------------------
-const val ROUT_TRACKING = "tracking"
+const val ROUT_TRACKING = "tracking" // Renamed from parameterized to static route for the main dashboard access
 
 // -------------------------------
 // Route Builders for Parameters
@@ -48,5 +54,4 @@ fun routeParcelDetails(parcelId: String) = "$ROUT_PARCEL_DETAILS/$parcelId"
 fun routeDriverParcelDetails(parcelId: String) = "$ROUT_DRIVER_PARCEL_DETAILS/$parcelId"
 fun routeDeliveryDetails(deliveryId: String) = "$ROUT_DELIVERY_DETAILS/$deliveryId"
 fun routeDeliverySummary(parcelId: String) = "$ROUT_DELIVERY_SUMMARY/$parcelId"
-fun routeTracking(parcelId: String) = "$ROUT_TRACKING/$parcelId"
-fun routeDriverDashboard(driverId: String) = "$ROUT_DRIVER_DASHBOARD/$driverId"
+// REMOVED: routeTracking(parcelId) builder, as the tracking screen (UserDashboardScreen) handles input.

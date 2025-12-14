@@ -15,7 +15,8 @@ class LoginViewModel(private val repository: AuthRepository) : ViewModel() {
     val uiState: StateFlow<LoginUIState> = _uiState
 
     /**
-     * Login function now calls suspend function directly
+     * Login function.
+     * Authenticates user and relies on AuthRepository to determine the correct role-based Success state.
      */
     fun login(email: String, password: String) {
         if (email.isBlank() || password.isBlank()) {
@@ -26,9 +27,37 @@ class LoginViewModel(private val repository: AuthRepository) : ViewModel() {
         _uiState.value = LoginUIState.Loading
 
         viewModelScope.launch {
-            val result = repository.login(email, password) // suspend call
-            _uiState.value = result // directly assign returned LoginUIState
+            // AuthRepository performs login, role lookup, and returns the final UI state
+            val result = repository.login(email, password)
+            _uiState.value = result
         }
+    }
+
+    /**
+     * Forgot Password function
+     */
+    fun sendPasswordReset(email: String) {
+        if (email.isBlank()) {
+            _uiState.value = LoginUIState.Error("Please enter your email to reset your password.")
+            return
+        }
+
+        _uiState.value = LoginUIState.Loading
+
+        viewModelScope.launch {
+            val result = repository.sendPasswordResetEmail(email)
+            _uiState.value = result.fold(
+                onSuccess = { LoginUIState.PasswordResetSent },
+                onFailure = { e -> LoginUIState.PasswordResetError(e.message ?: "Failed to send reset email.") }
+            )
+        }
+    }
+
+    /**
+     * Helper to clear transient messages (like reset success/error)
+     */
+    fun resetStateToIdle() {
+        _uiState.value = LoginUIState.Idle
     }
 }
 

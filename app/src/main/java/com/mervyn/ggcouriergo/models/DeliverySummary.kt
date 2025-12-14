@@ -7,5 +7,6 @@ data class DeliverySummary(
     val receiverName: String = "",
     val receiverPhone: String = "",
     val packageDetails: String = "",
-    val deliveredAt: Long? = null
+    val deliveredAt: Long? = null,
+    val deliveryPhotoUrl: String? = null // ADDED: Critical for Proof of Delivery (POD)
 )

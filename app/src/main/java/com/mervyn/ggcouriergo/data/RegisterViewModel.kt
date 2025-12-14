@@ -16,16 +16,18 @@ class RegisterViewModel(
     private val _uiState = MutableStateFlow<RegisterUIState>(RegisterUIState.Idle)
     val uiState: StateFlow<RegisterUIState> = _uiState
 
-    fun register(name: String, email: String, password: String) {
-        if (name.isBlank() || email.isBlank() || password.isBlank()) {
-            _uiState.value = RegisterUIState.Error("All fields must be filled.")
+    // UPDATED: Added role parameter
+    fun register(name: String, email: String, password: String, role: String) {
+        if (name.isBlank() || email.isBlank() || password.isBlank() || role.isBlank()) {
+            _uiState.value = RegisterUIState.Error("All fields must be filled and a role selected.")
             return
         }
 
         _uiState.value = RegisterUIState.Loading
 
         viewModelScope.launch {
-            val result = repository.registerUser(email, password, name)
+            // UPDATED: Pass role to the repository
+            val result = repository.registerUser(email, password, name, role)
             _uiState.value = result
         }
     }

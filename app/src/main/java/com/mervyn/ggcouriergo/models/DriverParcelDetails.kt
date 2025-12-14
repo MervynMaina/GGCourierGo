@@ -7,5 +7,8 @@ data class DriverParcelDetails(
     val receiverName: String = "",
     val receiverPhone: String = "",
     val packageDetails: String = "",
-    val status: String = ""
+    val status: String = "",
+    // NEW FIELDS REQUIRED FOR P3.2/P3.3
+    val deliveredAt: Long? = null,
+    val deliveryPhotoUrl: String? = null
 )

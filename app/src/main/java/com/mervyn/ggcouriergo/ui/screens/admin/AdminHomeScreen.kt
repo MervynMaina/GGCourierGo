@@ -1,183 +1,260 @@
 package com.mervyn.ggcouriergo.ui.screens.admin
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.google.firebase.firestore.FirebaseFirestore
-import com.mervyn.ggcouriergo.ui.theme.CourierGoTheme
+import com.mervyn.ggcouriergo.data.AdminHomeViewModel
+import com.mervyn.ggcouriergo.data.AdminHomeViewModelFactory
+import com.mervyn.ggcouriergo.models.* // Imports User, Parcel, AdminDashboardData
+import com.mervyn.ggcouriergo.repository.AdminRepository
+import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
+import com.mervyn.ggcouriergo.ui.theme.GGColors // Assuming GGColors contains necessary custom colors
 
 // --------------------------------------------------
-// DATA CLASSES
+// NAVIGATION SETUP
 // --------------------------------------------------
-data class User(
-    val id: String = "",
-    val email: String = "",
-    val role: String = ""
+
+sealed class AdminNavScreen(val route: String, val title: String, val icon: ImageVector) {
+    object Overview : AdminNavScreen("admin_overview", "Overview", Icons.Filled.Dashboard)
+    object Users : AdminNavScreen("admin_users", "Users", Icons.Filled.People)
+    object Parcels : AdminNavScreen("admin_parcels", "Parcels", Icons.Filled.LocalShipping)
+    object Settings : AdminNavScreen("admin_settings", "Settings", Icons.Filled.Settings)
+}
+
+val adminScreens = listOf(
+    AdminNavScreen.Overview,
+    AdminNavScreen.Users,
+    AdminNavScreen.Parcels,
+    AdminNavScreen.Settings
 )
 
-data class Parcel(
-    val id: String = "",
-    val senderName: String = "",
-    val receiverName: String = "",
-    val status: String = ""
-)
-
 // --------------------------------------------------
-// ADMIN DASHBOARD SCREEN
+// ADMIN DASHBOARD MAIN COMPOSABLE
 // --------------------------------------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdminDashboardScreen(navController: NavController) {
-    val db = FirebaseFirestore.getInstance()
-
-    var users by remember { mutableStateOf(listOf<User>()) }
-    var parcels by remember { mutableStateOf(listOf<Parcel>()) }
-    var isLoadingUsers by remember { mutableStateOf(true) }
-    var isLoadingParcels by remember { mutableStateOf(true) }
-
-    // Fetch users
-    LaunchedEffect(Unit) {
-        db.collection("users")
-            .get()
-            .addOnSuccessListener { snapshot ->
-                users = snapshot.documents.map { doc ->
-                    User(
-                        id = doc.id,
-                        email = doc.getString("email") ?: "",
-                        role = doc.getString("role") ?: "driver"
-                    )
-                }
-                isLoadingUsers = false
-            }
-            .addOnFailureListener { isLoadingUsers = false }
-    }
-
-    // Fetch parcels
-    LaunchedEffect(Unit) {
-        db.collection("parcels")
-            .get()
-            .addOnSuccessListener { snapshot ->
-                parcels = snapshot.documents.map { doc ->
-                    Parcel(
-                        id = doc.id,
-                        senderName = doc.getString("senderName") ?: "",
-                        receiverName = doc.getString("receiverName") ?: "",
-                        status = doc.getString("status") ?: ""
-                    )
-                }
-                isLoadingParcels = false
-            }
-            .addOnFailureListener { isLoadingParcels = false }
-    }
-
-    // Analytics
-    val totalParcels = parcels.size
-    val deliveredParcels = parcels.count { it.status.lowercase() == "delivered" }
-    val pendingParcels = parcels.count { it.status.lowercase() != "delivered" }
+fun AdminHomeScreen(
+    navController: NavController,
+    padding: Modifier, // Outer navigation (for logout, dispatcher/driver links)
+) {
+    val navHostController = rememberNavController() // Internal navigation for BottomBar
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Admin Dashboard") }) }
+        topBar = { TopAppBar(
+            title = { Text("Admin Console") },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                titleContentColor = MaterialTheme.colorScheme.onPrimary
+            ),
+            actions = {
+                // Example action: Logout button
+                IconButton(onClick = { /* TODO: Implement Logout function */ navController.navigate("login") }) {
+                    Icon(Icons.Filled.ExitToApp, contentDescription = "Logout", tint = MaterialTheme.colorScheme.onPrimary)
+                }
+            }
+        ) },
+        bottomBar = { AdminBottomNavigationBar(navHostController) }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .padding(paddingValues)
-                .padding(16.dp)
-                .fillMaxSize()
-        ) {
-            // --- Analytics Cards ---
-            Text("Analytics", style = MaterialTheme.typography.headlineMedium)
-            Spacer(Modifier.height(16.dp))
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                StatCard("Total Parcels", totalParcels.toString())
-                StatCard("Delivered", deliveredParcels.toString())
-                StatCard("Pending", pendingParcels.toString())
-            }
+        AdminNavHost(navHostController, Modifier.padding(paddingValues))
+    }
+}
 
-            Spacer(Modifier.height(24.dp))
+// --------------------------------------------------
+// BOTTOM NAVIGATION COMPOSABLE
+// --------------------------------------------------
+@Composable
+fun AdminBottomNavigationBar(navController: NavHostController) {
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentDestination = navBackStackEntry?.destination
 
-            // --- User List ---
-            Text("Registered Users", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
+        adminScreens.forEach { screen ->
+            val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
 
-            when {
-                isLoadingUsers -> CircularProgressIndicator()
-                users.isEmpty() -> Text("No users found.")
-                else -> LazyColumn {
-                    items(users) { user ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Text("Email: ${user.email}")
-                                Text("Role: ${user.role}")
-                            }
+            NavigationBarItem(
+                icon = { Icon(screen.icon, contentDescription = screen.title) },
+                label = { Text(screen.title) },
+                selected = isSelected,
+                onClick = {
+                    navController.navigate(screen.route) {
+                        // Avoid building up a large stack of destinations
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
                         }
+                        // Avoid multiple copies of the same destination
+                        launchSingleTop = true
+                        // Restore state when reselecting a previously selected item
+                        restoreState = true
                     }
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            // --- Parcels List ---
-            Text("Parcels Overview", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-
-            when {
-                isLoadingParcels -> CircularProgressIndicator()
-                parcels.isEmpty() -> Text("No parcels found.")
-                else -> LazyColumn {
-                    items(parcels) { parcel ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(8.dp)) {
-                                Text("Parcel ID: ${parcel.id}")
-                                Text("Sender: ${parcel.senderName}")
-                                Text("Receiver: ${parcel.receiverName}")
-                                Text("Status: ${parcel.status}")
-                            }
-                        }
-                    }
-                }
-            }
+                },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                )
+            )
         }
     }
 }
 
 // --------------------------------------------------
-// STAT CARD COMPOSABLE
+// ADMIN NAV HOST (Handles internal screen switching)
 // --------------------------------------------------
 @Composable
-fun StatCard(title: String, value: String) {
+fun AdminNavHost(navController: NavHostController, modifier: Modifier) {
+    NavHost(
+        navController = navController,
+        startDestination = AdminNavScreen.Overview.route,
+        modifier = modifier
+    ) {
+        composable(AdminNavScreen.Overview.route) {
+            // Use ViewModel injected via Factory
+            OverviewScreen(viewModel = viewModel(factory = AdminHomeViewModelFactory(AdminRepository())))
+        }
+        // Placeholder screens for future expansion
+        composable(AdminNavScreen.Users.route) { UserManagementScreen() }
+        composable(AdminNavScreen.Parcels.route) { ParcelManagementScreen() }
+        composable(AdminNavScreen.Settings.route) { AdminSettingsScreen() }
+    }
+}
+
+// --------------------------------------------------
+// 5.1 OVERVIEW/DASHBOARD SCREEN (View Model based)
+// --------------------------------------------------
+@Composable
+fun OverviewScreen(viewModel: AdminHomeViewModel) {
+    val uiState by viewModel.uiState.collectAsState()
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        item {
+            Text("Dashboard Overview", style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(16.dp))
+        }
+
+        when (val state = uiState) {
+            is AdminHomeUIState.Loading -> {
+                item { CircularProgressIndicator(modifier = Modifier.padding(32.dp)) }
+            }
+            is AdminHomeUIState.Error -> {
+                item { Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error) }
+            }
+            is AdminHomeUIState.Success -> {
+                item {
+                    // Analytics Cards
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // FIX: StatCard now accepts a modifier to apply weight externally
+                        StatCard(
+                            title = "Total Parcels",
+                            value = state.data.totalParcels.toString(),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatCard(
+                            title = "Delivered",
+                            value = state.data.deliveredParcels.toString(),
+                            color = GGColors.SuccessGreen,
+                            modifier = Modifier.weight(1f)
+                        )
+                        StatCard(
+                            title = "Pending",
+                            value = state.data.pendingParcels.toString(),
+                            color = MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(Modifier.height(24.dp))
+
+                    // Quick Stats: Users
+                    Text("User Summary", style = MaterialTheme.typography.titleLarge)
+                    Divider(Modifier.padding(vertical = 8.dp))
+                    state.data.users.groupBy { it.role }.forEach { (role, list) ->
+                        Text("Total ${role.replaceFirstChar { it.uppercase() }}s: ${list.size}")
+                    }
+                    Spacer(Modifier.height(24.dp))
+                }
+
+                // Parcel List (For quick look)
+                item {
+                    Text("Recent Parcels", style = MaterialTheme.typography.titleLarge)
+                    Divider(Modifier.padding(vertical = 8.dp))
+                }
+                items(state.data.parcels.take(5)) { parcel -> // Show only top 5 recent parcels
+                    Card(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("ID: ${parcel.id}", style = MaterialTheme.typography.bodyMedium)
+                            Text("Status: ${parcel.status.replaceFirstChar { it.uppercase() }}", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+            }
+            else -> {}
+        }
+    }
+}
+
+// --------------------------------------------------
+// STAT CARD COMPOSABLE (FIXED)
+// --------------------------------------------------
+@Composable
+fun StatCard(
+    title: String,
+    value: String,
+    color: Color,
+    modifier: Modifier = Modifier // Accepts external modifier
+) {
     Card(
-        modifier = Modifier.padding(4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        // The external modifier (including weight) is applied here
+        modifier = modifier.padding(4.dp),
+        colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.1f))
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(title, style = MaterialTheme.typography.titleSmall)
+            Text(title, style = MaterialTheme.typography.titleSmall, color = color)
             Spacer(Modifier.height(8.dp))
-            Text(value, style = MaterialTheme.typography.headlineSmall)
+            Text(value, style = MaterialTheme.typography.headlineSmall, color = color)
         }
     }
 }
+
+// --------------------------------------------------
+// PLACEHOLDER SCREENS (Used in AdminNavHost)
+// --------------------------------------------------
+@Composable fun UserManagementScreen() { Box(Modifier.fillMaxSize().background(Color.LightGray), Alignment.Center) { Text("User Management (TO BE BUILT)") } }
+@Composable fun ParcelManagementScreen() { Box(Modifier.fillMaxSize().background(Color.LightGray), Alignment.Center) { Text("Parcel Management (TO BE BUILT)") } }
+@Composable fun AdminSettingsScreen() { Box(Modifier.fillMaxSize().background(Color.LightGray), Alignment.Center) { Text("Admin Settings (TO BE BUILT)") } }
 
 // --------------------------------------------------
 // PREVIEW
@@ -185,8 +262,10 @@ fun StatCard(title: String, value: String) {
 @Preview(showBackground = true)
 @Composable
 fun PreviewAdminDashboardScreen() {
-    val navController = rememberNavController()
-    CourierGoTheme {
-        AdminDashboardScreen(navController)
+    GGCourierGoTheme {
+        AdminHomeScreen(
+            navController = rememberNavController(),
+            padding = Modifier
+        )
     }
 }

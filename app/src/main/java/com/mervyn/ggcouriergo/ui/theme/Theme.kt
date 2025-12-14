@@ -1,99 +1,85 @@
 package com.mervyn.ggcouriergo.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import com.mervyn.ggcouriergo.ui.theme.Typography
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
-)
+// ---------------------- 1. Custom Color Definitions ----------------------
+
+// Centralized color definitions for easy use across the app
+object GGColors {
+    // Primary Brand Colors
+    val GreenPrimary = Color(0xFF1B8F3A) // Used for main buttons, app bar, dominant elements
+    val GreenSecondary = Color(0xFF37C15A) // Used for accents, secondary buttons, progress indicators
+
+    // UI/Neutral Colors
+    val GrayBackground = Color(0xFFF5F5F5) // Main screen background
+    val GraySurface = Color(0xFFEDEDED) // Card/container background
+
+    // Other useful colors (You can expand this later)
+    val ErrorRed = Color(0xFFB00020)
+    val SuccessGreen = Color(0xFF4CAF50)
+    val White = Color.White
+    val Black = Color.Black
+}
+
+// ---------------------- 2. Color Schemes ----------------------
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = GGColors.GreenPrimary,
+    onPrimary = GGColors.White,
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    secondary = GGColors.GreenSecondary,
+    onSecondary = GGColors.White,
+
+    // Default background colors
+    background = GGColors.GrayBackground,
+    onBackground = GGColors.Black,
+
+    // Default surface colors (for Cards, Sheets, etc.)
+    surface = GGColors.GraySurface,
+    onSurface = GGColors.Black,
+
+    // Error Handling
+    error = GGColors.ErrorRed,
+    onError = GGColors.White,
 )
 
-// ---------------------- Theme ----------------------
+private val DarkColorScheme = darkColorScheme(
+    // NOTE: You will need to define suitable dark mode colors here.
+    // For now, we will use a temporary dark scheme, but we will focus on the Light one.
+    primary = Color(0xFF6CBE7E), // Lighter green for contrast on dark
+    onPrimary = Color.Black,
+    secondary = Color(0xFF90EE90),
+    background = Color(0xFF121212), // Dark gray background
+    surface = Color(0xFF1E1E1E), // Darker surface
+    onBackground = Color.White,
+    onSurface = Color.White,
+)
 
-// Color definitions
-object GGColors {
-    val GreenPrimary = Color(0xFF1B8F3A)
-    val GreenSecondary = Color(0xFF37C15A)
-    val GreenDark = Color(0xFF0E6122)
-    val GreenLight = Color(0xFFA9F0C1)
-    val GrayBackground = Color(0xFFF5F5F5)
-    val GraySurface = Color(0xFFEDEDED)
-}
-
-@Composable
-fun CourierGoTheme(content: @Composable () -> Unit) {
-    val colorScheme = lightColorScheme(
-        primary = GGColors.GreenPrimary,
-        secondary = GGColors.GreenSecondary,
-        background = GGColors.GrayBackground,
-        surface = GGColors.GraySurface,
-        onPrimary = Color.White,
-        onSecondary = Color.White,
-        onBackground = Color.Black,
-        onSurface = Color.Black
-    )
-
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        shapes = Shapes(),
-        content = content
-    )
-}
-
-// --------------------------------------------------
-// ORIGINAL THEME (UNCHANGED)
-// --------------------------------------------------
+// ---------------------- 3. The Theme Composable ----------------------
 
 @Composable
 fun GGCourierGoTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // We disable dynamicColor for now to ensure *perfect* uniformity across devices
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
+        // Disabling dynamic color and platform checks for uniformity goal
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
-        shapes = Shapes(),
+        typography = Typography, // Assuming Typography is defined in Typography.kt
+        shapes = Shapes(), // Assuming Shapes is defined or you use default shapes
         content = content
     )
 }

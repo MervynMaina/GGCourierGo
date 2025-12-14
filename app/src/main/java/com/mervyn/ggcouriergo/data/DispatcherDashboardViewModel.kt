@@ -18,6 +18,7 @@ open class DispatcherDashboardViewModel(private val repository: ParcelRepository
         _uiState.value = DispatcherDashboardUIState.Loading
         viewModelScope.launch {
             try {
+                // Fetch unassigned parcels for the default tab
                 val parcels = repository.getUnassignedParcels()
                 _uiState.value = DispatcherDashboardUIState.Success(parcels)
             } catch (e: Exception) {
