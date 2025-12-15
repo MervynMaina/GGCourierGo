@@ -20,7 +20,7 @@ class DriverRepository {
 
             val snapshot = driversCollection
                 // Assuming a field 'role' is needed to filter users who are drivers
-                // .whereEqualTo("role", "driver") // Uncomment if you have role filtering
+                .whereEqualTo("role", "driver") // Uncomment if you have role filtering
                 .whereIn("status", availableStatuses)
                 .get()
                 .await()

@@ -41,7 +41,7 @@ fun DriverDashboardScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Driver Dashboard") }) }
+        topBar = { TopAppBar(title = { Text("Driver Console") }) }
     ) { paddingValues ->
         Column(
             modifier = Modifier

@@ -6,17 +6,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.mervyn.ggcouriergo.data.DriverShiftViewModel
 import com.mervyn.ggcouriergo.data.DriverShiftViewModelFactory
-import com.mervyn.ggcouriergo.models.DriverShiftUIState
+// 💥 NEW IMPORT REQUIRED: DriverRepository is needed for instantiation
+import com.mervyn.ggcouriergo.repository.DriverRepository
 import com.mervyn.ggcouriergo.repository.DriverShiftRepository
+import com.mervyn.ggcouriergo.models.DriverShiftUIState
 import java.util.concurrent.TimeUnit
-import com.mervyn.ggcouriergo.navigation.ROUT_DRIVER_DASHBOARD // For navigation
 
 // Helper to format milliseconds to H:MM:SS
 private fun formatTime(ms: Long): String {
@@ -26,20 +25,32 @@ private fun formatTime(ms: Long): String {
     return String.format("%02d:%02d:%02d", hours, minutes, seconds)
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriverShiftScreen(
     navController: NavController,
-    viewModel: DriverShiftViewModel = viewModel(
-        factory = DriverShiftViewModelFactory(DriverShiftRepository())
-    )
+    // 💥 FIX START: Remove default viewModel construction here
+    // We will construct it inside the function body using `remember`
+    // viewModel: DriverShiftViewModel = viewModel(factory = DriverShiftViewModelFactory(DriverShiftRepository()))
 ) {
+    // 1. 💥 CRITICAL FIX: Instantiate DriverRepository (base dependency)
+    val driverRepository = remember { DriverRepository() }
+
+    // 2. 💥 CRITICAL FIX: Instantiate DriverShiftRepository, passing the base dependency
+    val driverShiftRepository = remember { DriverShiftRepository(driverRepository) }
+
+    // 3. 💥 CRITICAL FIX: Instantiate the ViewModel using the configured repository chain
+    val viewModel: DriverShiftViewModel = viewModel(
+        factory = remember { DriverShiftViewModelFactory(driverShiftRepository) }
+    )
+
     val uiState by viewModel.uiState.collectAsState()
-    val now = remember { System.currentTimeMillis() } // Time reference for running clock
+
+    // We don't strictly need 'now' here as the ViewModel/State should drive the UI updates,
+    // but keeping it doesn't hurt.
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Driver Shift") }) }
+        topBar = { TopAppBar(title = { Text("Shift Manager") }) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -51,15 +62,20 @@ fun DriverShiftScreen(
         ) {
             when (val state = uiState) {
                 is DriverShiftUIState.Loading -> {
-                    CircularProgressIndicator()
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
                 }
                 is DriverShiftUIState.Error -> {
-                    Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+                    }
                 }
                 is DriverShiftUIState.Success -> {
                     val shift = state.shift
+
+                    // Calculate live duration if active
                     val runningDuration = if (shift.isActive && shift.shiftStartTime != null) {
-                        // Calculate live running time using current system time
                         System.currentTimeMillis() - shift.shiftStartTime
                     } else {
                         0L
@@ -68,8 +84,9 @@ fun DriverShiftScreen(
 
                     Spacer(Modifier.height(32.dp))
 
+                    // Status Indicator
                     Text(
-                        if (shift.isActive) "SHIFT CLOCKED IN" else "SHIFT OFF DUTY",
+                        if (shift.isActive) "ON DUTY" else "OFF DUTY",
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = if (shift.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
@@ -79,7 +96,10 @@ fun DriverShiftScreen(
                     Spacer(Modifier.height(24.dp))
 
                     // Clock Display Card
-                    Card(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth().height(150.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
                         Column(
                             modifier = Modifier.fillMaxSize().padding(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -91,7 +111,7 @@ fun DriverShiftScreen(
                                 formatTime(currentShiftTime),
                                 style = MaterialTheme.typography.headlineLarge.copy(
                                     fontWeight = FontWeight.Black,
-                                    color = if (shift.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                             )
                         }
@@ -99,10 +119,10 @@ fun DriverShiftScreen(
 
                     Spacer(Modifier.height(32.dp))
 
-                    // Toggle Button
+                    // 1. Clock In/Out Button
                     Button(
                         onClick = viewModel::toggleShift,
-                        modifier = Modifier.fillMaxWidth().height(60.dp),
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = if (shift.isActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
                         )
@@ -110,6 +130,26 @@ fun DriverShiftScreen(
                         Text(
                             if (shift.isActive) "CLOCK OUT" else "CLOCK IN",
                             style = MaterialTheme.typography.titleLarge
+                        )
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // 2. NEW: Reset Button
+                    OutlinedButton(
+                        onClick = { viewModel.resetShift() },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !shift.isActive // Prevent reset while clock is running
+                    ) {
+                        Text("Reset for New Day")
+                    }
+
+                    if (shift.isActive) {
+                        Text(
+                            "You must clock out to reset the timer.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(top = 8.dp)
                         )
                     }
                 }

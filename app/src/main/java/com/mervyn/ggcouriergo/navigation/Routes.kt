@@ -21,6 +21,7 @@ const val ROUT_USER_DASHBOARD = "user_dashboard" // ADDED: Main entry point for 
 // -------------------------------
 const val ROUT_CREATE_PARCEL = "create_parcel"
 const val ROUT_PARCEL_DETAILS = "parcel_details"
+const val ROUT_PARCEL_LIST = "parcel_list_view"
 const val ROUT_DRIVER_PARCEL_DETAILS = "driver_parcel_details"
 
 const val ROUT_DELIVERY_DETAILS = "delivery_details"

@@ -252,9 +252,9 @@ fun StatCard(
 // --------------------------------------------------
 // PLACEHOLDER SCREENS (Used in AdminNavHost)
 // --------------------------------------------------
-@Composable fun UserManagementScreen() { Box(Modifier.fillMaxSize().background(Color.LightGray), Alignment.Center) { Text("User Management (TO BE BUILT)") } }
-@Composable fun ParcelManagementScreen() { Box(Modifier.fillMaxSize().background(Color.LightGray), Alignment.Center) { Text("Parcel Management (TO BE BUILT)") } }
-@Composable fun AdminSettingsScreen() { Box(Modifier.fillMaxSize().background(Color.LightGray), Alignment.Center) { Text("Admin Settings (TO BE BUILT)") } }
+//@Composable fun UserManagementScreen() { Box(Modifier.fillMaxSize().background(Color.LightGray), Alignment.Center) { Text("User Management (TO BE BUILT)") } }
+//@Composable fun ParcelManagementScreen() { Box(Modifier.fillMaxSize().background(Color.LightGray), Alignment.Center) { Text("Parcel Management (TO BE BUILT)") } }
+//@Composable fun AdminSettingsScreen() { Box(Modifier.fillMaxSize().background(Color.LightGray), Alignment.Center) { Text("Admin Settings (TO BE BUILT)") } }
 
 // --------------------------------------------------
 // PREVIEW

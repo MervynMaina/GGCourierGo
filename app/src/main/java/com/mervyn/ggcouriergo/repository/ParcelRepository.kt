@@ -2,7 +2,10 @@ package com.mervyn.ggcouriergo.repository
 
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.snapshots
 import com.mervyn.ggcouriergo.models.Parcel
+import kotlinx.coroutines.flow.Flow // NEW: Import Flow
+import kotlinx.coroutines.flow.map    // NEW: Import map for Flow transformations
 import kotlinx.coroutines.tasks.await
 
 class ParcelRepository {
@@ -10,26 +13,46 @@ class ParcelRepository {
     private val db = FirebaseFirestore.getInstance()
     private val parcelsCollection = db.collection("parcels")
 
-    // Fetch unassigned parcels
-    suspend fun getUnassignedParcels(): List<Parcel> {
-        return try {
-            val snapshot = parcelsCollection
-                .whereEqualTo("assignedDriver", null)
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .get()
-                .await()
+    // ----------------------------------------------------------------------
+    // REAL-TIME FLOWS (For instantaneous UI updates on main dashboards)
+    // ----------------------------------------------------------------------
 
-            snapshot.documents.mapNotNull { doc ->
-                doc.data?.let { data ->
-                    mapParcel(doc.id, data)
+    // Fetch unassigned parcels (REAL-TIME)
+    fun getUnassignedParcelsFlow(): Flow<List<Parcel>> {
+        return parcelsCollection
+            .whereEqualTo("assignedDriver", "UNASSIGNED")
+            .whereEqualTo("status", "pending")
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .snapshots() // Listen for real-time updates
+            .map { snapshot ->
+                snapshot.documents.mapNotNull { doc ->
+                    doc.data?.let { data ->
+                        mapParcel(doc.id, data)
+                    }
                 }
             }
-        } catch (e: Exception) {
-            emptyList()
-        }
     }
 
-    // Fetch a single parcel by ID (REQUIRED FOR P2.3)
+    // Fetch all parcels assigned to ANY driver (REAL-TIME)
+    fun getAllAssignedParcelsFlow(): Flow<List<Parcel>> {
+        return parcelsCollection
+            .whereEqualTo("status", "assigned")
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+            .snapshots() // Listen for real-time updates
+            .map { snapshot ->
+                snapshot.documents.mapNotNull { doc ->
+                    doc.data?.let { data ->
+                        mapParcel(doc.id, data)
+                    }
+                }
+            }
+    }
+
+    // ----------------------------------------------------------------------
+    // SUSPEND FUNCTIONS (For single-shot actions like details or forms)
+    // ----------------------------------------------------------------------
+
+    // Fetch a single parcel by ID
     suspend fun getParcel(parcelId: String): Parcel? {
         return try {
             val snapshot = parcelsCollection.document(parcelId).get().await()
@@ -41,34 +64,12 @@ class ParcelRepository {
         }
     }
 
-    // NEW: Fetch all parcels assigned to ANY driver (REQUIRED FOR P2.4)
-    suspend fun getAllAssignedParcels(): List<Parcel> {
-        return try {
-            val snapshot = parcelsCollection
-                // Firestore requires an index if combining whereNotEqualTo and orderBy on different fields.
-                // Assuming "assignedDriver" is not null is generally sufficient for a list of assigned items.
-                .whereNotEqualTo("assignedDriver", null)
-                .orderBy("assignedDriver", Query.Direction.ASCENDING) // Order by driver first to enable the filter
-                .orderBy("createdAt", Query.Direction.DESCENDING)
-                .get()
-                .await()
-
-            snapshot.documents.mapNotNull { doc ->
-                doc.data?.let { data ->
-                    mapParcel(doc.id, data)
-                }
-            }
-        } catch (e: Exception) {
-            // NOTE: If this throws an error about missing indexes, the developer must create one in Firebase console.
-            emptyList()
-        }
-    }
-
     // Fetch parcels assigned to a specific driver
     suspend fun getAssignedParcels(driverId: String): List<Parcel> {
         return try {
             val snapshot = parcelsCollection
                 .whereEqualTo("assignedDriver", driverId)
+                .whereEqualTo("status", "assigned")
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .await()
@@ -90,7 +91,7 @@ class ParcelRepository {
                 .update(
                     mapOf(
                         "assignedDriver" to driverId,
-                        "status" to "assigned" // Update status upon assignment
+                        "status" to "assigned"
                     )
                 )
                 .await()
@@ -120,10 +121,35 @@ class ParcelRepository {
         }
     }
 
+    // Legacy function for client filter (kept as suspend)
+    suspend fun getAllParcelsForClientFilter(): List<Parcel> {
+        return try {
+            val snapshot = parcelsCollection
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .get()
+                .await()
+
+            snapshot.documents.mapNotNull { doc ->
+                doc.data?.let { data ->
+                    mapParcel(doc.id, data)
+                }
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
     // ------------------------------------------------------------
     // Helper mapper (used internally for consistent data retrieval)
     // ------------------------------------------------------------
     private fun mapParcel(id: String, data: Map<String, Any>): Parcel {
+        val createdAtValue = data["createdAt"]
+        val createdAtLong = when (createdAtValue) {
+            is Long -> createdAtValue
+            is Number -> createdAtValue.toLong()
+            else -> System.currentTimeMillis()
+        }
+
         return Parcel(
             id = id,
             senderName = data["senderName"] as? String ?: "",
@@ -133,7 +159,7 @@ class ParcelRepository {
             packageDetails = data["packageDetails"] as? String ?: "",
             status = data["status"] as? String ?: "pending",
             assignedDriver = data["assignedDriver"] as? String,
-            createdAt = (data["createdAt"] as? Long) ?: System.currentTimeMillis()
+            createdAt = createdAtLong
         )
     }
 }

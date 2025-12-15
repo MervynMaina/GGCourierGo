@@ -122,7 +122,8 @@ fun CreateParcelScreen(
                             pickupAddress = pickupAddress,
                             dropoffAddress = dropoffAddress,
                             packageDetails = packageDetails,
-                            status = "pending"
+                            status = "pending",
+                            assignedDriver = "UNASSIGNED"
                         )
                     )
                 },

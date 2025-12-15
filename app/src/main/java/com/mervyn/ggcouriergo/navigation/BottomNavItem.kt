@@ -19,13 +19,14 @@ sealed class BottomNavItem(
 
     // Role-Specific Dashboards (Used for main entry point)
     object DriverDashboard : BottomNavItem("Deliveries", Icons.Filled.DeliveryDining, ROUT_DRIVER_DASHBOARD)
+    object AdminHome : BottomNavItem("Overview", Icons.Filled.VerifiedUser, ROUT_ADMIN_DASHBOARD)
     object DispatcherDashboard : BottomNavItem("Overview", Icons.Filled.Dashboard, ROUT_DISPATCHER_DASHBOARD)
     object UserTrackingDashboard : BottomNavItem("Track Parcel", Icons.Filled.TrackChanges, ROUT_TRACKING)
 
     // Role-Specific Features
     object DriverShift : BottomNavItem("Shift Manager", Icons.Filled.Schedule, ROUT_DRIVER_SHIFT)
     object CreateParcel : BottomNavItem("New Parcel", Icons.Filled.AddBox, ROUT_CREATE_PARCEL)
-    object ParcelList : BottomNavItem("Parcels", Icons.AutoMirrored.Filled.List, ROUT_PARCEL_DETAILS)
+    object ParcelList : BottomNavItem("Parcels", Icons.AutoMirrored.Filled.List, ROUT_PARCEL_LIST)
 
     companion object {
         fun getItemsForRole(role: String): List<BottomNavItem> {
@@ -43,7 +44,8 @@ sealed class BottomNavItem(
                     Profile
                 )
                 "admin" -> listOf(
-                    DispatcherDashboard,
+                    AdminHome,
+                    //DispatcherDashboard,
                     ParcelList,
                     Settings
                     // Admin would likely navigate to AdminDashboard, but uses Dispatcher view for parcel handling

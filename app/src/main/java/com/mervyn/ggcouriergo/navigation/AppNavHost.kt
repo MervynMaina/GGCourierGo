@@ -78,6 +78,16 @@ fun AppNavHost(
             DriverParcelDetailsScreen(navController, parcelId)
         }
 
+        // CRITICAL ADDITION: The new List Route (used for the bottom tab click)
+        composable(ROUT_PARCEL_LIST) {
+            // Since the 'Parcels' tab is used by Dispatcher,
+            // it should route to the screen that contains the Dispatcher's parcel views (New/Assigned).
+
+            // This assumes DispatcherDashboardScreen is the entry point for the Dispatcher's content,
+            // which then handles the internal tabs (New, Assigned, Map).
+            DispatcherDashboardScreen(navController = navController)
+        }
+
         // Delivery summary (P3.3)
         composable("$ROUT_DELIVERY_SUMMARY/{parcelId}") { backStackEntry ->
             val parcelId = backStackEntry.arguments?.getString("parcelId") ?: "unknown"

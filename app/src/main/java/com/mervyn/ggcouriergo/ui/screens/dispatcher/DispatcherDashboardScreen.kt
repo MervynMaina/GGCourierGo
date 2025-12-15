@@ -14,14 +14,22 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.mervyn.ggcouriergo.data.DispatcherDashboardViewModel
-import com.mervyn.ggcouriergo.data.DispatcherDashboardViewModelFactory
-import com.mervyn.ggcouriergo.models.DispatcherDashboardUIState
-import com.mervyn.ggcouriergo.models.Parcel // <--- IMPORT ADDED
+// We now need to import the required components for the New Parcels Tab
+import com.mervyn.ggcouriergo.data.NewParcelsViewModel
+import com.mervyn.ggcouriergo.data.NewParcelsViewModelFactory
+// We no longer need DispatcherDashboardViewModel/Factory unless it manages other data
+// import com.mervyn.ggcouriergo.data.DispatcherDashboardViewModel
+// import com.mervyn.ggcouriergo.data.DispatcherDashboardViewModelFactory
+
+// The necessary imports for models/repo/navigation are assumed to be correct
+
+import com.mervyn.ggcouriergo.models.Parcel
 import com.mervyn.ggcouriergo.repository.ParcelRepository
 import com.mervyn.ggcouriergo.navigation.routeParcelDetails
 import com.mervyn.ggcouriergo.navigation.ROUT_CREATE_PARCEL
-import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme // Corrected Theme Import
+import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
+// If you defined the UI state needed for the old approach, it's now removed.
+// import com.mervyn.ggcouriergo.models.DispatcherDashboardUIState
 
 // Define internal screens/tabs
 sealed class DispatcherNavTab(val title: String) {
@@ -39,9 +47,9 @@ val dispatcherTabs = listOf(DispatcherNavTab.NewParcels, DispatcherNavTab.Assign
 fun DispatcherDashboardScreen(
     navController: NavController,
     modifier: Modifier = Modifier,
-    viewModel: DispatcherDashboardViewModel = viewModel(
-        factory = DispatcherDashboardViewModelFactory(ParcelRepository())
-    )
+    // FIX 1: REMOVE the DispatcherDashboardViewModel dependency.
+    // Data loading is now handled by the specific tabs (NewParcelsTab, AssignedParcelsTab).
+    // viewModel: DispatcherDashboardViewModel = viewModel(...) // <-- REMOVED
 ) {
     var selectedTabIndex by remember { mutableStateOf(0) }
 
@@ -57,7 +65,7 @@ fun DispatcherDashboardScreen(
         }
     ) { paddingValues ->
         Column(
-            modifier = Modifier
+            modifier = modifier // Use the external modifier passed in
                 .padding(paddingValues)
                 .fillMaxSize()
         ) {
@@ -73,13 +81,19 @@ fun DispatcherDashboardScreen(
             }
 
             // Content based on selected tab
-            // FIX 1: Removed 'index =' assignment
             when (selectedTabIndex) {
-                0 -> NewParcelsTab(navController, viewModel)
-                1 -> AssignedParcelsTab(onNavigateToDetails = { parcelId ->
-                    // Navigate to the details screen for monitoring
+                // FIX 2: Call the correct, new, standalone NewParcelsTab Composable.
+                // We pass the navigation function it needs for assignment.
+                0 -> NewParcelsTab(onNavigateToAssignment = { parcelId ->
+                    // Navigate to the details/assignment screen
                     navController.navigate(routeParcelDetails(parcelId))
                 })
+
+                // FIX 3: AssignedParcelsTab call (Assuming this is a standalone component too)
+                1 -> AssignedParcelsTab(onNavigateToDetails = { parcelId ->
+                    navController.navigate(routeParcelDetails(parcelId))
+                })
+
                 2 -> DispatcherMapViewTab()
             }
         }
@@ -87,60 +101,15 @@ fun DispatcherDashboardScreen(
 }
 
 // --------------------------------------------------
-// TAB 1: New Parcels (Shows unassigned deliveries)
+// OLD TAB 1 LOGIC REMOVED/REPLACED
 // --------------------------------------------------
+/*
+// The following block is the old, conflicting NewParcelsTab logic and is REMOVED
 @Composable
 fun NewParcelsTab(navController: NavController, viewModel: DispatcherDashboardViewModel) {
-    val uiState by viewModel.uiState.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.loadParcels() // Loads unassigned parcels
-    }
-
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Parcels Ready for Assignment",
-            style = MaterialTheme.typography.titleLarge
-        )
-        Spacer(Modifier.height(10.dp))
-
-        when (val state = uiState) {
-            is DispatcherDashboardUIState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
-            is DispatcherDashboardUIState.Error -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
-                }
-            }
-            is DispatcherDashboardUIState.Success -> {
-                if (state.parcels.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No new parcels awaiting assignment.", style = MaterialTheme.typography.bodyLarge)
-                    }
-                } else {
-                    LazyColumn {
-                        items(state.parcels, key = { it.id }) { parcel ->
-                            AssignableDeliveryCard(parcel = parcel) {
-                                // Navigate to the details screen for assignment
-                                navController.navigate(routeParcelDetails(parcel.id))
-                            }
-                        }
-                    }
-                }
-            }
-            // Add Idle state handling for robustness
-            else -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("System is initializing...")
-                }
-            }
-        }
-    }
+    // ... entire previous implementation of NewParcelsTab is deleted from this file
 }
+*/
 
 // --------------------------------------------------
 // TAB 3: Map View (Placeholder remains)
@@ -148,43 +117,30 @@ fun NewParcelsTab(navController: NavController, viewModel: DispatcherDashboardVi
 @Composable
 fun DispatcherMapViewTab() {
     Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-        //
         Text("Live Driver/Parcel Map (Integration with Maps API required)", style = MaterialTheme.typography.titleMedium)
     }
 }
 
 // --------------------------------------------------
-// Delivery Card
+// Delivery Card (Moved to a separate file, or kept if generic)
+// Since this card was tied to the old NewParcelsTab, it should be removed or moved.
+// For now, removing it here to clean up the file.
 // --------------------------------------------------
+/*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssignableDeliveryCard(parcel: Parcel, onAssignClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        onClick = onAssignClick, // Make the entire card clickable
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Parcel ID: ${parcel.id}", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(4.dp))
-            // FIX 2: Parcel properties are now recognized due to the import
-            Text("Pickup: ${parcel.pickupAddress}")
-            Text("Dropoff: ${parcel.dropoffAddress}")
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = onAssignClick, modifier = Modifier.fillMaxWidth()) {
-                Text("View Details / Assign")
-            }
-        }
-    }
+    // ... REMOVED
 }
+*/
+
 
 @Preview(showBackground = true)
 @Composable
 fun PreviewDispatcherDashboardScreen() {
     val navController = rememberNavController()
     GGCourierGoTheme {
+        // We can't use the real data/viewmodels in the preview easily, but the UI structure is fine.
         DispatcherDashboardScreen(navController)
     }
 }

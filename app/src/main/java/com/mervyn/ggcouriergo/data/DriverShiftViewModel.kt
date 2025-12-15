@@ -40,8 +40,10 @@ class DriverShiftViewModel(private val repository: DriverShiftRepository) : View
                         delay(1000L) // Wait 1 second
                         if (_uiState.value is DriverShiftUIState.Success) {
                             // Re-assign the current state to trigger a recomposition in the UI
-                            // necessary to update the live running clock time.
-                            _uiState.value = (_uiState.value as DriverShiftUIState.Success).copy(shift = (_uiState.value as DriverShiftUIState.Success).shift)
+                            // This is the common pattern for live clock updates in a ViewModel flow.
+                            _uiState.value = (_uiState.value as DriverShiftUIState.Success).copy(
+                                shift = (_uiState.value as DriverShiftUIState.Success).shift
+                            )
                         }
                     }
                 }
@@ -54,12 +56,32 @@ class DriverShiftViewModel(private val repository: DriverShiftRepository) : View
     }
 
     fun toggleShift() {
-        val currentShift = (_uiState.value as? DriverShiftUIState.Success)?.shift ?: return
+        // The check is needed because we can only toggle if we have a successful state
+        if (_uiState.value !is DriverShiftUIState.Success) return
 
-        // Ideally, temporarily set to loading state here
+        val currentShift = (_uiState.value as DriverShiftUIState.Success).shift
+
         viewModelScope.launch {
+            // This relies on the repository and the shift listener to update the UI
             repository.toggleShift(currentShift)
-            // No need to manually update state; the Firebase snapshot listener handles the refresh.
+        }
+    }
+
+    /**
+     * NEW: Resets the driver's shift status and accumulated time.
+     * Only call this when the shift is NOT active.
+     */
+    fun resetShift() {
+        if (_uiState.value !is DriverShiftUIState.Success) return
+
+        val currentShift = (_uiState.value as DriverShiftUIState.Success).shift
+
+        // Prevent reset if the shift is currently active
+        if (currentShift.isActive) return
+
+        viewModelScope.launch {
+            // This relies on the repository and the shift listener to update the UI
+            repository.resetShift()
         }
     }
 

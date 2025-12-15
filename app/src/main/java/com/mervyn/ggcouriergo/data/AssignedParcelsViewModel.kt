@@ -7,7 +7,9 @@ import com.mervyn.ggcouriergo.models.AssignedParcelsUIState
 import com.mervyn.ggcouriergo.repository.ParcelRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.catch      // NEW: Import for error handling
+import kotlinx.coroutines.flow.launchIn  // NEW: Import to start flow collection
+import kotlinx.coroutines.flow.onEach    // NEW: Import to handle flow emissions
 
 class AssignedParcelsViewModel(private val repository: ParcelRepository) : ViewModel() {
 
@@ -16,25 +18,22 @@ class AssignedParcelsViewModel(private val repository: ParcelRepository) : ViewM
     val uiState: StateFlow<AssignedParcelsUIState> = _uiState
 
     init {
-        // Load initial data when ViewModel is created
-        loadAssignedParcels()
-    }
-
-    // Since this is the Dispatcher's view, we want ALL assigned parcels, regardless of driver.
-    // We achieve this by querying the repository for parcels where 'assignedDriver' is NOT null
-    // (This requires a new method in ParcelRepository)
-    fun loadAssignedParcels() {
-        _uiState.value = AssignedParcelsUIState.Loading
-        viewModelScope.launch {
-            try {
-                // The repository method must be able to fetch parcels assigned to ANY driver
-                val parcels = repository.getAllAssignedParcels()
+        // CRITICAL FIX: Collect the real-time Flow in the init block
+        repository.getAllAssignedParcelsFlow() // <- NOW CALLING THE REAL-TIME FLOW FUNCTION
+            .onEach { parcels ->
+                // Update the state immediately on new data
                 _uiState.value = AssignedParcelsUIState.Success(parcels)
-            } catch (e: Exception) {
+            }
+            .catch { e ->
+                // Handle errors from the real-time stream
                 _uiState.value = AssignedParcelsUIState.Error(e.message ?: "Failed to load assigned parcels.")
             }
-        }
+            // Start the collector and tie its lifecycle to the ViewModel
+            .launchIn(viewModelScope)
     }
+
+    // REMOVED: The manual loadAssignedParcels() function is no longer necessary!
+    // The Flow in the init block handles all loading and refreshing.
 }
 
 class AssignedParcelsViewModelFactory(private val repository: ParcelRepository) :

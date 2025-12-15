@@ -125,6 +125,7 @@ fun DisplayParcelDetails(parcel: Parcel) {
 }
 
 // Helper Composable for assignment logic
+// Helper Composable for assignment logic
 @Composable
 fun DriverAssignmentSection(
     parcel: Parcel,
@@ -133,7 +134,8 @@ fun DriverAssignmentSection(
     onDriverSelected: (Driver?) -> Unit,
     onAssignClicked: (Driver) -> Unit
 ) {
-    val isAssigned = parcel.assignedDriver != null
+    // Corrected logic: Assigned only if not null AND not the placeholder.
+    val isAssigned = parcel.assignedDriver != null && parcel.assignedDriver != "UNASSIGNED"
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -148,6 +150,7 @@ fun DriverAssignmentSection(
                 if (availableDrivers.isEmpty()) {
                     Text("No drivers currently available for assignment.", color = MaterialTheme.colorScheme.error)
                 } else {
+                    // 💥 FIX: CALL THE DROPDOWN HERE
                     DriverDropdown(
                         drivers = availableDrivers,
                         selectedDriver = selectedDriver,
@@ -156,6 +159,7 @@ fun DriverAssignmentSection(
 
                     Spacer(Modifier.height(16.dp))
 
+                    // 💥 FIX: CALL THE BUTTON HERE
                     Button(
                         onClick = { selectedDriver?.let(onAssignClicked) },
                         modifier = Modifier.fillMaxWidth(),
@@ -191,45 +195,57 @@ fun DetailRow(label: String, value: String, isAssigned: Boolean = false) {
 }
 
 
-// Helper for the driver selection dropdown
+// Helper for the driver selection dropdown (REVISED FOR ANCHORING)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
+// Helper for the driver selection dropdown (REVISED FOR RELIABILITY)
 fun DriverDropdown(
     drivers: List<Driver>,
     selectedDriver: Driver?,
     onDriverSelected: (Driver?) -> Unit
 ) {
+    // 1. Local state to control the menu visibility
     var expanded by remember { mutableStateOf(false) }
 
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth().height(56.dp),
-        onClick = { expanded = true }
+    // 2. The core component: ExposedDropdownMenuBox
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(selectedDriver?.name ?: "Select Driver", color = LocalContentColor.current)
-            Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
-        }
+        // 3. The input field that anchors the menu (clickable and displays current selection)
+        OutlinedTextField(
+            // Use menuAnchor() modifier provided by the ExposedDropdownMenuBox scope
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            readOnly = true, // The user cannot type here, only select from menu
+            value = selectedDriver?.name ?: "Select Driver",
+            onValueChange = { /* readOnly is true, so this won't be used */ },
+            label = { Text("Available Drivers") },
+            trailingIcon = {
+                // Trailing icon clearly indicates a dropdown
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            },
+            colors = ExposedDropdownMenuDefaults.textFieldColors()
+        )
 
-        DropdownMenu(
+        // 4. The dropdown menu itself
+        ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
             drivers.forEach { driver ->
                 DropdownMenuItem(
-                    text = { Text("${driver.name} (${driver.status.name})") },
+                    text = { Text("${driver.name} (Status: ${driver.status.name})") },
                     onClick = {
                         onDriverSelected(driver)
-                        expanded = false
-                    }
+                        expanded = false // Close the menu on selection
+                    },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                 )
             }
         }
     }
 }
-
 
 @Preview(showBackground = true)
 @Composable
