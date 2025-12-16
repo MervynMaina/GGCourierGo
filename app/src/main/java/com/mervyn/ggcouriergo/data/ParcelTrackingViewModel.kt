@@ -3,6 +3,7 @@ package com.mervyn.ggcouriergo.data
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
 import com.mervyn.ggcouriergo.models.ParcelTracking
 import com.mervyn.ggcouriergo.models.ParcelTrackingUIState
 import com.mervyn.ggcouriergo.repository.ParcelTrackingRepository
@@ -19,11 +20,28 @@ class ParcelTrackingViewModel(private val repository: ParcelTrackingRepository) 
     private val _parcelIdInput = MutableStateFlow("")
     val parcelIdInput: StateFlow<String> = _parcelIdInput.asStateFlow()
 
+    // --- NEW: History State ---
+    private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
+    val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
+
+    init {
+        fetchHistory()
+    }
+
     fun updateParcelIdInput(newInput: String) {
         _parcelIdInput.value = newInput
-        // Clear state if the user deletes the input
         if (newInput.isBlank()) {
             _uiState.value = ParcelTrackingUIState.Idle
+        }
+    }
+
+    private fun fetchHistory() {
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        viewModelScope.launch {
+            // This calls a new method we discussed for the repository
+            repository.getTrackingHistory(currentUserId).collect { historyList ->
+                _searchHistory.value = historyList
+            }
         }
     }
 
@@ -36,18 +54,30 @@ class ParcelTrackingViewModel(private val repository: ParcelTrackingRepository) 
         _uiState.value = ParcelTrackingUIState.Loading
         viewModelScope.launch {
             try {
-                // FIX: Removed the incorrect manual mapping logic.
-                // The repository method is trusted to return the final ParcelTracking object.
                 val trackingParcel = repository.getTrackingParcel(parcelId)
 
                 if (trackingParcel != null) {
                     _uiState.value = ParcelTrackingUIState.Success(trackingParcel)
+
+                    // --- NEW: Save to Firebase History on Success ---
+                    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
+                    if (currentUserId != null) {
+                        repository.saveToHistory(currentUserId, parcelId)
+                    }
                 } else {
                     _uiState.value = ParcelTrackingUIState.Error("Parcel ID '$parcelId' not found.")
                 }
             } catch (e: Exception) {
                 _uiState.value = ParcelTrackingUIState.Error("A network error occurred: ${e.message}")
             }
+        }
+    }
+
+    // Optional: Function to clear history from the UI
+    fun clearHistory() {
+        val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        viewModelScope.launch {
+            repository.clearHistory(currentUserId)
         }
     }
 }

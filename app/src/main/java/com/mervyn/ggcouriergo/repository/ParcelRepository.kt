@@ -1,7 +1,9 @@
 package com.mervyn.ggcouriergo.repository
 
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.snapshots
 import com.mervyn.ggcouriergo.models.Parcel
 import kotlinx.coroutines.flow.Flow
@@ -130,6 +132,21 @@ class ParcelRepository {
         } catch (e: Exception) {
             null
         }
+    }
+
+    suspend fun saveToHistory(userId: String, trackingId: String) {
+        val db = FirebaseFirestore.getInstance()
+        val historyData = mapOf(
+            "trackingId" to trackingId,
+            "timestamp" to FieldValue.serverTimestamp()
+        )
+
+        // Save under: users -> {userId} -> history -> {trackingId}
+        db.collection("users")
+            .document(userId)
+            .collection("history")
+            .document(trackingId)
+            .set(historyData, SetOptions.merge())
     }
 
 }

@@ -26,6 +26,7 @@ class AuthRepository {
                 "driver" -> LoginUIState.SuccessDriver
                 "dispatcher" -> LoginUIState.SuccessDispatcher
                 "admin" -> LoginUIState.SuccessAdmin
+                "customer" -> LoginUIState.SuccessCustomer
                 else -> LoginUIState.Error("Login success, but failed to map role: $role")
             }
         } catch (e: Exception) {

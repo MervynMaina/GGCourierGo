@@ -5,19 +5,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,12 +25,13 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.mervyn.ggcouriergo.data.LoginViewModel
 import com.mervyn.ggcouriergo.data.LoginViewModelFactory
+import com.mervyn.ggcouriergo.data.ThemeSettings
 import com.mervyn.ggcouriergo.models.LoginUIState
 import com.mervyn.ggcouriergo.navigation.ROUT_MAIN_APP
 import com.mervyn.ggcouriergo.repository.AuthRepository
 import com.mervyn.ggcouriergo.ui.components.GGCourierLogo
 import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
-import com.mervyn.ggcouriergo.ui.theme.GGColors
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,20 +45,43 @@ fun LoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var rememberMe by remember { mutableStateOf(false) }
 
-    // CRITICAL: Reusable colors to ensure visibility on white background
+    // Theme logic for the shortcut toggle
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val themeSettings = remember { ThemeSettings(context) }
+    val isDarkMode by themeSettings.darkModeFlow.collectAsState(initial = false)
+
+    // THEME AWARE colors for TextFields
     val textFieldColors = OutlinedTextFieldDefaults.colors(
-        focusedTextColor = Color.Black,
-        unfocusedTextColor = Color.Black,
+        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
         focusedBorderColor = MaterialTheme.colorScheme.primary,
-        unfocusedBorderColor = Color.LightGray,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
         focusedLabelColor = MaterialTheme.colorScheme.primary,
-        unfocusedLabelColor = Color.DarkGray,
-        cursorColor = MaterialTheme.colorScheme.primary
+        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        cursorColor = MaterialTheme.colorScheme.primary,
+        focusedLeadingIconColor = MaterialTheme.colorScheme.primary
     )
 
     Box(
-        modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.primary)
     ) {
+        // --- 1. THEME TOGGLE SHORTCUT (Top Right) ---
+        IconButton(
+            onClick = { scope.launch { themeSettings.toggleTheme() } },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 40.dp, end = 16.dp)
+        ) {
+            Icon(
+                imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                contentDescription = "Toggle Theme",
+                tint = Color.White // Keep white to stand out against primary green background
+            )
+        }
+
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(Modifier.height(60.dp))
             GGCourierLogo(modifier = Modifier.size(80.dp), color = Color.White)
@@ -72,13 +95,16 @@ fun LoginScreen(
             )
             Spacer(Modifier.height(40.dp))
 
+            // Main Form Container
             Surface(
                 modifier = Modifier.fillMaxSize(),
                 shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                color = Color.White
+                color = MaterialTheme.colorScheme.surface // Theme aware: White in light, Dark in dark
             ) {
                 Column(
-                    modifier = Modifier.padding(32.dp).fillMaxSize(),
+                    modifier = Modifier
+                        .padding(32.dp)
+                        .fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
@@ -89,7 +115,7 @@ fun LoginScreen(
                     Text(
                         text = "Sign in to continue delivery",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     Spacer(Modifier.height(32.dp))
@@ -100,11 +126,11 @@ fun LoginScreen(
                         onValueChange = { email = it },
                         label = { Text("Email Address") },
                         modifier = Modifier.fillMaxWidth(),
-                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        colors = textFieldColors // Use the high-visibility colors
+                        colors = textFieldColors
                     )
 
                     Spacer(Modifier.height(16.dp))
@@ -116,17 +142,17 @@ fun LoginScreen(
                         label = { Text("Password") },
                         modifier = Modifier.fillMaxWidth(),
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
                         trailingIcon = {
                             val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(imageVector = image, contentDescription = null, tint = Color.Gray)
+                                Icon(imageVector = image, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
                             }
                         },
                         shape = RoundedCornerShape(12.dp),
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        colors = textFieldColors // FIXED: Use the same colors here!
+                        colors = textFieldColors
                     )
 
                     Row(
@@ -140,7 +166,7 @@ fun LoginScreen(
                                 onCheckedChange = { rememberMe = it },
                                 colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
                             )
-                            Text("Remember Me", style = MaterialTheme.typography.bodySmall, color = Color.DarkGray)
+                            Text("Remember Me", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
                         TextButton(onClick = { viewModel.sendPasswordReset(email) }) {
@@ -153,13 +179,19 @@ fun LoginScreen(
                     // Status Feedback
                     when (val state = uiState) {
                         is LoginUIState.Loading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        is LoginUIState.Error -> Text(state.message, color = MaterialTheme.colorScheme.error, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                        is LoginUIState.PasswordResetSent -> Text("Reset link sent to your email!", color = Color(0xFF4CAF50))
+                        is LoginUIState.Error -> Text(
+                            state.message,
+                            color = MaterialTheme.colorScheme.error,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        is LoginUIState.PasswordResetSent -> Text("Reset link sent!", color = Color(0xFF4CAF50))
                         else -> {}
                     }
 
                     Spacer(Modifier.height(16.dp))
 
+                    // LOGIN BUTTON
                     Button(
                         onClick = { viewModel.login(email, password) },
                         modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -172,7 +204,11 @@ fun LoginScreen(
                     Spacer(Modifier.height(24.dp))
 
                     TextButton(onClick = { navController.navigate("register") }) {
-                        Text("Don't have an account? Register Now", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                        Text(
+                            "Don't have an account? Register Now",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
             }
@@ -180,12 +216,23 @@ fun LoginScreen(
     }
 
     LaunchedEffect(uiState) {
-        if (uiState is LoginUIState.SuccessAdmin || uiState is LoginUIState.SuccessDispatcher || uiState is LoginUIState.SuccessDriver) {
-            navController.navigate(ROUT_MAIN_APP) { popUpTo("login") { inclusive = true } }
+        when (uiState) {
+            is LoginUIState.SuccessAdmin,
+            is LoginUIState.SuccessDispatcher,
+            is LoginUIState.SuccessDriver -> {
+                navController.navigate(ROUT_MAIN_APP) {
+                    popUpTo("login") { inclusive = true }
+                }
+            }
+            is LoginUIState.SuccessCustomer -> {
+                navController.navigate("user_dashboard") {
+                    popUpTo("login") { inclusive = true }
+                }
+            }
+            else -> {}
         }
     }
 }
-
 @Preview(showBackground = true)
 @Composable
 fun PreviewLoginScreen() {

@@ -2,18 +2,16 @@ package com.mervyn.ggcouriergo.ui.screens.dispatcher
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.ExitToApp
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -21,27 +19,30 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
+import com.mervyn.ggcouriergo.data.ThemeSettings
 import com.mervyn.ggcouriergo.navigation.routeParcelDetails
 import com.mervyn.ggcouriergo.navigation.ROUT_CREATE_PARCEL
 import com.mervyn.ggcouriergo.navigation.ROUT_LOGIN
 import com.mervyn.ggcouriergo.navigation.ROUT_PROFILE
 import com.mervyn.ggcouriergo.navigation.ROUT_SETTINGS
 import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
+import kotlinx.coroutines.launch
 
 sealed class DispatcherNavTab(val title: String) {
     object NewParcels : DispatcherNavTab("New Parcels")
     object AssignedParcels : DispatcherNavTab("Assigned")
     object MapView : DispatcherNavTab("Fleet Intel")
-    object History : DispatcherNavTab("History") // New Tab added
+    object History : DispatcherNavTab("History")
 }
 
 val dispatcherTabs = listOf(
     DispatcherNavTab.NewParcels,
     DispatcherNavTab.AssignedParcels,
     DispatcherNavTab.MapView,
-    DispatcherNavTab.History // Added to the list
+    DispatcherNavTab.History
 )
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DispatcherDashboardScreen(
     navController: NavController,
@@ -50,6 +51,12 @@ fun DispatcherDashboardScreen(
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var showMenu by remember { mutableStateOf(false) }
 
+    // Theme Logic
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val themeSettings = remember { ThemeSettings(context) }
+    val isDarkMode by themeSettings.darkModeFlow.collectAsState(initial = false)
+
     Scaffold(
         modifier = modifier,
         floatingActionButton = {
@@ -57,21 +64,21 @@ fun DispatcherDashboardScreen(
                 onClick = { navController.navigate(ROUT_CREATE_PARCEL) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.White,
-                shape = androidx.compose.foundation.shape.CircleShape
+                shape = CircleShape
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Create New Parcel")
             }
         },
-        containerColor = Color.Transparent
+        containerColor = MaterialTheme.colorScheme.background // Fix: Uses theme background
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .padding(paddingValues)
                 .fillMaxSize()
-                .background(Color(0xFFF8F9FA))
         ) {
+            // --- THEME-AWARE HEADER ---
             Surface(
-                color = Color.White,
+                color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 3.dp,
                 shadowElevation = 2.dp
             ) {
@@ -92,73 +99,69 @@ fun DispatcherDashboardScreen(
                             )
                         )
 
-                        Box {
-                            IconButton(onClick = { showMenu = true }) {
+                        // --- ACTION ROW (Theme + Menu) ---
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Quick Theme Toggle
+                            IconButton(onClick = { scope.launch { themeSettings.toggleTheme() } }) {
                                 Icon(
-                                    imageVector = Icons.Default.AccountCircle,
-                                    contentDescription = "User Menu",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(32.dp)
+                                    imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                    contentDescription = "Toggle Theme",
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                             }
 
-                            DropdownMenu(
-                                expanded = showMenu,
-                                onDismissRequest = { showMenu = false },
-                                modifier = Modifier
-                                    .background(Color.White)
-                                    .width(180.dp)
-                            ) {
-                                DropdownMenuItem(
-                                    text = {
-                                        Text("My Profile", color = Color.Black, fontWeight = FontWeight.Medium)
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        navController.navigate(ROUT_PROFILE)
-                                    }
-                                )
+                            Box {
+                                IconButton(onClick = { showMenu = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.AccountCircle,
+                                        contentDescription = "User Menu",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
 
-                                DropdownMenuItem(
-                                    text = {
-                                        Text("Settings", color = Color.Black, fontWeight = FontWeight.Medium)
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        navController.navigate(ROUT_SETTINGS)
-                                    }
-                                )
-
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                                DropdownMenuItem(
-                                    text = {
-                                        Text("Sign Out", color = Color.Red, fontWeight = FontWeight.Bold)
-                                    },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.ExitToApp, contentDescription = null, tint = Color.Red)
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        FirebaseAuth.getInstance().signOut()
-                                        navController.navigate(ROUT_LOGIN) {
-                                            popUpTo(0) { inclusive = true }
+                                DropdownMenu(
+                                    expanded = showMenu,
+                                    onDismissRequest = { showMenu = false },
+                                    modifier = Modifier.width(180.dp)
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("My Profile") },
+                                        leadingIcon = { Icon(Icons.Default.Person, null) },
+                                        onClick = {
+                                            showMenu = false
+                                            navController.navigate(ROUT_PROFILE)
                                         }
-                                    }
-                                )
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Settings") },
+                                        leadingIcon = { Icon(Icons.Default.Settings, null) },
+                                        onClick = {
+                                            showMenu = false
+                                            navController.navigate(ROUT_SETTINGS)
+                                        }
+                                    )
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                    DropdownMenuItem(
+                                        text = { Text("Sign Out", color = MaterialTheme.colorScheme.error) },
+                                        leadingIcon = { Icon(Icons.Default.ExitToApp, null, tint = MaterialTheme.colorScheme.error) },
+                                        onClick = {
+                                            showMenu = false
+                                            FirebaseAuth.getInstance().signOut()
+                                            navController.navigate(ROUT_LOGIN) {
+                                                popUpTo(0) { inclusive = true }
+                                            }
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
 
+                    // --- THEME-AWARE TAB ROW ---
                     TabRow(
                         selectedTabIndex = selectedTabIndex,
-                        containerColor = Color.White,
+                        containerColor = MaterialTheme.colorScheme.surface,
                         contentColor = MaterialTheme.colorScheme.primary,
                         divider = {},
                         indicator = { tabPositions ->
@@ -176,7 +179,7 @@ fun DispatcherDashboardScreen(
                                     Text(
                                         text = tab.title,
                                         fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                                        fontSize = 11.sp // Reduced size slightly for 4 tabs
+                                        fontSize = 11.sp
                                     )
                                 }
                             )
@@ -185,6 +188,7 @@ fun DispatcherDashboardScreen(
                 }
             }
 
+            // --- TAB CONTENT AREA ---
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (selectedTabIndex) {
                     0 -> NewParcelsTab(onNavigateToAssignment = { navController.navigate(routeParcelDetails(it)) })

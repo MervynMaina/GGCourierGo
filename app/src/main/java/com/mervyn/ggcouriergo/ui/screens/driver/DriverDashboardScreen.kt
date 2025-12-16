@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -24,11 +25,13 @@ import androidx.navigation.compose.rememberNavController
 import com.google.firebase.auth.FirebaseAuth
 import com.mervyn.ggcouriergo.data.DriverDashboardViewModel
 import com.mervyn.ggcouriergo.data.DriverDashboardViewModelFactory
+import com.mervyn.ggcouriergo.data.ThemeSettings
 import com.mervyn.ggcouriergo.models.DriverDashboardUIState
 import com.mervyn.ggcouriergo.models.Parcel
 import com.mervyn.ggcouriergo.repository.ParcelRepository
 import com.mervyn.ggcouriergo.navigation.*
 import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
+import kotlinx.coroutines.launch
 
 @Composable
 fun DriverDashboardScreen(
@@ -40,6 +43,12 @@ fun DriverDashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val driverId = FirebaseAuth.getInstance().currentUser?.uid
+
+    // Theme Logic
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val themeSettings = remember { ThemeSettings(context) }
+    val isDarkMode by themeSettings.darkModeFlow.collectAsState(initial = false)
 
     // UI State for Tabs and Menu
     var selectedTabIndex by remember { mutableIntStateOf(0) }
@@ -53,11 +62,11 @@ fun DriverDashboardScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
+            .background(MaterialTheme.colorScheme.background) // Fix: Background adapts
     ) {
         // --- PREMIUM ENHANCED HEADER ---
         Surface(
-            color = Color.White,
+            color = MaterialTheme.colorScheme.surface, // Fix: Surface adapts
             tonalElevation = 2.dp,
             shadowElevation = 1.dp
         ) {
@@ -84,59 +93,57 @@ fun DriverDashboardScreen(
                         Text(
                             text = "You have $activeCount active deliveries",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    // --- DROPDOWN MENU (Same as Dispatcher) ---
-                    Box {
-                        IconButton(onClick = { showMenu = true }) {
+                    // --- ACTION ROW (Theme + Menu) ---
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Quick Theme Toggle
+                        IconButton(onClick = { scope.launch { themeSettings.toggleTheme() } }) {
                             Icon(
-                                imageVector = Icons.Default.AccountCircle,
-                                contentDescription = "User Menu",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(32.dp)
+                                imageVector = if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                contentDescription = "Toggle Theme",
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
 
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false },
-                            modifier = Modifier
-                                .background(Color.White)
-                                .width(180.dp)
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("My Profile", color = Color.Black, fontWeight = FontWeight.Medium) },
-                                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                onClick = {
-                                    showMenu = false
-                                    navController.navigate(ROUT_PROFILE)
-                                }
-                            )
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountCircle,
+                                    contentDescription = "User Menu",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
 
-                            DropdownMenuItem(
-                                text = { Text("Settings", color = Color.Black, fontWeight = FontWeight.Medium) },
-                                leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                                onClick = {
-                                    showMenu = false
-                                    navController.navigate(ROUT_SETTINGS)
-                                }
-                            )
-
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                            DropdownMenuItem(
-                                text = { Text("Sign Out", color = Color.Red, fontWeight = FontWeight.Bold) },
-                                leadingIcon = { Icon(Icons.Default.ExitToApp, contentDescription = null, tint = Color.Red) },
-                                onClick = {
-                                    showMenu = false
-                                    FirebaseAuth.getInstance().signOut()
-                                    navController.navigate(ROUT_LOGIN) {
-                                        popUpTo(0) { inclusive = true }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                                modifier = Modifier.width(180.dp)
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("My Profile") },
+                                    leadingIcon = { Icon(Icons.Default.Person, null) },
+                                    onClick = {
+                                        showMenu = false
+                                        navController.navigate(ROUT_PROFILE)
                                     }
-                                }
-                            )
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                DropdownMenuItem(
+                                    text = { Text("Sign Out", color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Default.ExitToApp, null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = {
+                                        showMenu = false
+                                        FirebaseAuth.getInstance().signOut()
+                                        navController.navigate(ROUT_LOGIN) {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -144,7 +151,7 @@ fun DriverDashboardScreen(
                 // --- TAB ROW ---
                 TabRow(
                     selectedTabIndex = selectedTabIndex,
-                    containerColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     contentColor = MaterialTheme.colorScheme.primary,
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
@@ -175,7 +182,7 @@ fun DriverDashboardScreen(
         when (val state = uiState) {
             is DriverDashboardUIState.Loading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
             is DriverDashboardUIState.Error -> {
@@ -221,7 +228,7 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         onClick = onClick
     ) {
@@ -231,17 +238,16 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val isDelivered = parcel.status.lowercase() == "delivered"
                 val statusColor = when(parcel.status.lowercase()) {
                     "assigned" -> MaterialTheme.colorScheme.primary
                     "picked_up" -> Color(0xFF1976D2)
                     "in_transit" -> Color(0xFFE65100)
                     "delivered" -> Color(0xFF1B8F3A)
-                    else -> Color.Gray
+                    else -> MaterialTheme.colorScheme.outline
                 }
 
                 Surface(
-                    color = statusColor.copy(alpha = 0.1f),
+                    color = statusColor.copy(alpha = 0.15f),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
@@ -256,7 +262,7 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
                 Text(
                     text = "ID: ${parcel.id.takeLast(5)}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = Color.LightGray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                     letterSpacing = 1.sp
                 )
             }
@@ -268,7 +274,8 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
                     Text(
                         text = parcel.receiverName,
                         style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -282,7 +289,7 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
                         Text(
                             text = parcel.dropoffAddress,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.DarkGray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1
                         )
                     }
@@ -290,15 +297,18 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
 
                 IconButton(
                     onClick = onClick,
-                    modifier = Modifier.background(Color(0xFFF0F0F0), CircleShape)
+                    modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant, CircleShape)
                 ) {
-                    Icon(Icons.Default.Navigation, contentDescription = null, tint = Color.Gray)
+                    Icon(
+                        Icons.Default.Navigation,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
             Spacer(Modifier.height(20.dp))
 
-            // Hide the Action button if it's already delivered
             if (parcel.status.lowercase() != "delivered") {
                 Button(
                     onClick = onClick,
@@ -311,7 +321,7 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
                         }
                     )
                 ) {
-                    Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.LocalShipping, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
                         text = when(parcel.status.lowercase()) {
@@ -320,15 +330,17 @@ fun DriverParcelCard(parcel: Parcel, onClick: () -> Unit) {
                             "in_transit" -> "COMPLETE DELIVERY"
                             else -> "VIEW DETAILS"
                         },
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
+                        fontWeight = FontWeight.Bold
                     )
                 }
             } else {
                 OutlinedButton(
                     onClick = onClick,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(
+                        brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outline)
+                    )
                 ) {
                     Text("VIEW COMPLETION DETAILS", fontWeight = FontWeight.Bold)
                 }
@@ -346,13 +358,13 @@ fun EmptyDeliveriesView() {
     ) {
         Icon(
             Icons.Default.LocalShipping,
-            contentDescription = null,
+            null,
             modifier = Modifier.size(80.dp),
-            tint = Color.LightGray.copy(alpha = 0.5f)
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
         )
         Spacer(Modifier.height(16.dp))
-        Text("All clear!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.Gray)
-        Text("New assignments will appear here", color = Color.LightGray)
+        Text("All clear!", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("New assignments will appear here", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
     }
 }
 
@@ -365,16 +377,15 @@ fun EmptyHistoryView() {
     ) {
         Icon(
             Icons.Default.Notifications,
-            contentDescription = null,
+            null,
             modifier = Modifier.size(80.dp),
-            tint = Color.LightGray.copy(alpha = 0.5f)
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
         )
         Spacer(Modifier.height(16.dp))
-        Text("No history yet", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.Gray)
-        Text("Complete your first delivery to see it here!", color = Color.LightGray)
+        Text("No history yet", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Complete your first delivery to see it here!", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
     }
 }
-
 @Preview(showBackground = true)
 @Composable
 fun PreviewDriverDashboardScreen() {

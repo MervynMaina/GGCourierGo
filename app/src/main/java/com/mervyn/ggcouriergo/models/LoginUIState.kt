@@ -9,6 +9,7 @@ sealed class LoginUIState {
     object SuccessDriver : LoginUIState()
     object SuccessDispatcher : LoginUIState()
     object SuccessAdmin : LoginUIState()
+    object SuccessCustomer : LoginUIState()
 
     // Password Reset States
     object PasswordResetSent: LoginUIState()

@@ -1,5 +1,6 @@
 package com.mervyn.ggcouriergo.ui.screens.admin
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,14 +13,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext // Needed for Context
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel // Needed for viewModel()
+import com.mervyn.ggcouriergo.data.AdminHomeViewModel
+import com.mervyn.ggcouriergo.models.AdminHomeUIState
 import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
+import com.mervyn.ggcouriergo.utils.BackupUtils
 
 @Composable
-fun AdminSettingsScreen() {
+fun AdminSettingsScreen(
+    // Added ViewModel as a parameter
+    viewModel: AdminHomeViewModel = viewModel()
+) {
+    // 1. Define Context and uiState
+    val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsState()
+
     var maintenanceMode by remember { mutableStateOf(false) }
     var pushNotifications by remember { mutableStateOf(true) }
 
@@ -54,7 +67,6 @@ fun AdminSettingsScreen() {
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // --- SECTION: SYSTEM CONTROL ---
             item { SettingHeader(title = "System Control") }
             item {
                 SettingsSwitchTile(
@@ -66,7 +78,6 @@ fun AdminSettingsScreen() {
                 )
             }
 
-            // --- SECTION: NOTIFICATIONS ---
             item { SettingHeader(title = "Communications") }
             item {
                 SettingsSwitchTile(
@@ -78,14 +89,23 @@ fun AdminSettingsScreen() {
                 )
             }
 
-            // --- SECTION: DATA MANAGEMENT ---
             item { SettingHeader(title = "Data Management") }
             item {
                 SettingsActionTile(
                     title = "Backup Database",
-                    subtitle = "Export system data to cloud storage",
+                    subtitle = "Export system data to local JSON",
                     icon = Icons.Default.CloudUpload,
-                    onClick = { /* TODO */ }
+                    onClick = {
+                        // Successfully resolves uiState and context
+                        when (val state = uiState) {
+                            is AdminHomeUIState.Success -> {
+                                BackupUtils.exportDataToJson(context, state.data)
+                            }
+                            else -> {
+                                Toast.makeText(context, "Data not ready for backup", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
                 )
             }
             item {
@@ -100,6 +120,8 @@ fun AdminSettingsScreen() {
         }
     }
 }
+
+// ... SettingHeader, SettingsSwitchTile, and SettingsActionTile remain unchanged ...
 
 @Composable
 fun SettingHeader(title: String) {
@@ -141,6 +163,7 @@ fun SettingsSwitchTile(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class) // Added for Card onClick
 @Composable
 fun SettingsActionTile(
     title: String,
