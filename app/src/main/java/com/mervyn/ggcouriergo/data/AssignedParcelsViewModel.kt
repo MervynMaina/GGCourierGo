@@ -4,36 +4,28 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.mervyn.ggcouriergo.models.AssignedParcelsUIState
+import com.mervyn.ggcouriergo.models.Parcel
 import com.mervyn.ggcouriergo.repository.ParcelRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch      // NEW: Import for error handling
-import kotlinx.coroutines.flow.launchIn  // NEW: Import to start flow collection
-import kotlinx.coroutines.flow.onEach    // NEW: Import to handle flow emissions
+import kotlinx.coroutines.flow.*
 
 class AssignedParcelsViewModel(private val repository: ParcelRepository) : ViewModel() {
 
-    // Note: We use a StateFlow for the list of ALL assigned parcels (not driver specific)
-    private val _uiState = MutableStateFlow<AssignedParcelsUIState>(AssignedParcelsUIState.Loading)
-    val uiState: StateFlow<AssignedParcelsUIState> = _uiState
-
-    init {
-        // CRITICAL FIX: Collect the real-time Flow in the init block
-        repository.getAllAssignedParcelsFlow() // <- NOW CALLING THE REAL-TIME FLOW FUNCTION
-            .onEach { parcels ->
-                // Update the state immediately on new data
-                _uiState.value = AssignedParcelsUIState.Success(parcels)
-            }
-            .catch { e ->
-                // Handle errors from the real-time stream
-                _uiState.value = AssignedParcelsUIState.Error(e.message ?: "Failed to load assigned parcels.")
-            }
-            // Start the collector and tie its lifecycle to the ViewModel
-            .launchIn(viewModelScope)
-    }
-
-    // REMOVED: The manual loadAssignedParcels() function is no longer necessary!
-    // The Flow in the init block handles all loading and refreshing.
+    // Explicitly typing the Flow to AssignedParcelsUIState to resolve compiler errors
+    val uiState: StateFlow<AssignedParcelsUIState> = repository.getAllAssignedParcelsFlow()
+        .map { parcels: List<Parcel> ->
+            AssignedParcelsUIState.Success(parcels) as AssignedParcelsUIState
+        }
+        .onStart {
+            emit(AssignedParcelsUIState.Loading)
+        }
+        .catch { e ->
+            emit(AssignedParcelsUIState.Error(e.message ?: "Failed to connect to logistics stream."))
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = AssignedParcelsUIState.Loading
+        )
 }
 
 class AssignedParcelsViewModelFactory(private val repository: ParcelRepository) :
@@ -43,6 +35,6 @@ class AssignedParcelsViewModelFactory(private val repository: ParcelRepository) 
             @Suppress("UNCHECKED_CAST")
             return AssignedParcelsViewModel(repository) as T
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }

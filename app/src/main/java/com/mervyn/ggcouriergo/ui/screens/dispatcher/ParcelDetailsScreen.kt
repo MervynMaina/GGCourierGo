@@ -1,17 +1,23 @@
 package com.mervyn.ggcouriergo.ui.screens.dispatcher
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
@@ -36,59 +42,75 @@ fun ParcelDetailsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
 
-    // 1. Load data on first launch
     LaunchedEffect(parcelId) {
         viewModel.loadParcelDetails(parcelId)
     }
 
-    // 2. Local state for driver selection
-    var expanded by remember { mutableStateOf(false) }
     var selectedDriver by remember { mutableStateOf<Driver?>(null) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Parcel: $parcelId") },
+                title = { Text("Shipment Management", fontWeight = FontWeight.ExtraBold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
-        }
+        },
+        containerColor = Color(0xFFF8F9FA)
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .padding(paddingValues)
-                .padding(16.dp)
                 .fillMaxSize()
                 .verticalScroll(scrollState)
+                .padding(16.dp)
         ) {
-            // --- UI STATE HANDLING ---
             when (val state = uiState) {
                 is ParcelDetailsUIState.Loading -> {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    Spacer(Modifier.height(20.dp))
-                    Text("Loading parcel and available drivers...")
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
                 }
                 is ParcelDetailsUIState.Error -> {
-                    Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.height(20.dp))
-                    Button(onClick = { viewModel.loadParcelDetails(parcelId) }) {
-                        Text("Retry Load")
-                    }
+                    Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { viewModel.loadParcelDetails(parcelId) }) { Text("Retry") }
                 }
                 is ParcelDetailsUIState.AssignmentSuccess -> {
-                    Text("Assignment Successful!", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.headlineSmall)
-                    Spacer(Modifier.height(10.dp))
-                    // Automatically reload the details to show the assigned status
-                    LaunchedEffect(Unit) {
-                        viewModel.loadParcelDetails(parcelId)
-                    }
+                    LaunchedEffect(Unit) { viewModel.loadParcelDetails(parcelId) }
                 }
                 is ParcelDetailsUIState.Success -> {
-                    DisplayParcelDetails(parcel = state.data.parcel)
-                    Spacer(Modifier.height(32.dp))
+                    // --- PARCEL INFO CARD ---
+                    InfoSectionHeader(title = "Logistics Details", icon = Icons.Default.Info)
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(20.dp),
+                        elevation = CardDefaults.cardElevation(1.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            DetailRow(label = "Tracking ID", value = state.data.parcel.id)
+                            DetailRow(label = "Current Status", value = state.data.parcel.status.uppercase(), isHighlight = true)
+                            HorizontalDivider(Modifier.padding(vertical = 12.dp), color = Color(0xFFF0F0F0))
+                            DetailRow(label = "Sender", value = state.data.parcel.senderName)
+                            DetailRow(label = "Receiver", value = state.data.parcel.receiverName)
+                            HorizontalDivider(Modifier.padding(vertical = 12.dp), color = Color(0xFFF0F0F0))
+                            DetailRow(label = "Pickup", value = state.data.parcel.pickupAddress)
+                            DetailRow(label = "Dropoff", value = state.data.parcel.dropoffAddress)
+                        }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // --- ASSIGNMENT SECTION ---
+                    InfoSectionHeader(title = "Driver Assignment", icon = Icons.Default.LocalShipping)
                     DriverAssignmentSection(
                         parcel = state.data.parcel,
                         availableDrivers = state.data.availableDrivers,
@@ -99,33 +121,40 @@ fun ParcelDetailsScreen(
                         }
                     )
                 }
-                else -> {
-                    Text("Ready to load data.")
-                }
+                else -> {}
             }
         }
     }
 }
 
-// Helper Composable to display core parcel data
 @Composable
-fun DisplayParcelDetails(parcel: Parcel) {
-    Text("Parcel Details", style = MaterialTheme.typography.headlineSmall)
-    Spacer(Modifier.height(10.dp))
-    DetailRow(label = "ID", value = parcel.id)
-    DetailRow(label = "Status", value = parcel.status.uppercase())
-    Divider(Modifier.padding(vertical = 8.dp))
-    DetailRow(label = "Sender", value = parcel.senderName)
-    DetailRow(label = "Receiver", value = parcel.receiverName)
-    Divider(Modifier.padding(vertical = 8.dp))
-    DetailRow(label = "Pickup", value = parcel.pickupAddress)
-    DetailRow(label = "Dropoff", value = parcel.dropoffAddress)
-    DetailRow(label = "Package Info", value = parcel.packageDetails)
-    DetailRow(label = "Assigned Driver", value = parcel.assignedDriver ?: "UNASSIGNED", isAssigned = parcel.assignedDriver != null)
+fun InfoSectionHeader(title: String, icon: ImageVector) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(start = 8.dp, bottom = 12.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+    }
 }
 
-// Helper Composable for assignment logic
-// Helper Composable for assignment logic
+@Composable
+fun DetailRow(label: String, value: String, isHighlight: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = if (isHighlight) MaterialTheme.colorScheme.primary else Color.Black
+        )
+    }
+}
+
 @Composable
 fun DriverAssignmentSection(
     parcel: Parcel,
@@ -134,119 +163,98 @@ fun DriverAssignmentSection(
     onDriverSelected: (Driver?) -> Unit,
     onAssignClicked: (Driver) -> Unit
 ) {
-    // Corrected logic: Assigned only if not null AND not the placeholder.
     val isAssigned = parcel.assignedDriver != null && parcel.assignedDriver != "UNASSIGNED"
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = if (isAssigned) "Driver: ${parcel.assignedDriver}" else "Assign a Driver",
-                style = MaterialTheme.typography.titleLarge,
-                color = if (isAssigned) MaterialTheme.colorScheme.primary else LocalContentColor.current
-            )
-
-            if (!isAssigned) {
-                Spacer(Modifier.height(16.dp))
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            if (isAssigned) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Verified, contentDescription = null, tint = Color(0xFF1B8F3A))
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text("Shipment Assigned", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        Text(parcel.assignedDriver ?: "", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else {
                 if (availableDrivers.isEmpty()) {
-                    Text("No drivers currently available for assignment.", color = MaterialTheme.colorScheme.error)
+                    Text("No drivers available", color = MaterialTheme.colorScheme.error)
                 } else {
-                    // 💥 FIX: CALL THE DROPDOWN HERE
                     DriverDropdown(
                         drivers = availableDrivers,
                         selectedDriver = selectedDriver,
                         onDriverSelected = onDriverSelected
                     )
-
                     Spacer(Modifier.height(16.dp))
-
-                    // 💥 FIX: CALL THE BUTTON HERE
                     Button(
                         onClick = { selectedDriver?.let(onAssignClicked) },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
                         enabled = selectedDriver != null
                     ) {
-                        Text("Assign Driver")
+                        Text("CONFIRM ASSIGNMENT", fontWeight = FontWeight.Bold)
                     }
                 }
-            } else {
-                Spacer(Modifier.height(16.dp))
-                Text("This parcel is currently in transit/assigned.")
             }
         }
     }
 }
 
-// Helper for displaying a single detail row
-@Composable
-fun DetailRow(label: String, value: String, isAssigned: Boolean = false) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(
-            value,
-            style = MaterialTheme.typography.bodyLarge,
-            color = if (isAssigned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-        )
-    }
-}
-
-
-// Helper for the driver selection dropdown (REVISED FOR ANCHORING)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-// Helper for the driver selection dropdown (REVISED FOR RELIABILITY)
 fun DriverDropdown(
     drivers: List<Driver>,
     selectedDriver: Driver?,
     onDriverSelected: (Driver?) -> Unit
 ) {
-    // 1. Local state to control the menu visibility
     var expanded by remember { mutableStateOf(false) }
 
-    // 2. The core component: ExposedDropdownMenuBox
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded },
         modifier = Modifier.fillMaxWidth()
     ) {
-        // 3. The input field that anchors the menu (clickable and displays current selection)
         OutlinedTextField(
-            // Use menuAnchor() modifier provided by the ExposedDropdownMenuBox scope
             modifier = Modifier.fillMaxWidth().menuAnchor(),
-            readOnly = true, // The user cannot type here, only select from menu
-            value = selectedDriver?.name ?: "Select Driver",
-            onValueChange = { /* readOnly is true, so this won't be used */ },
-            label = { Text("Available Drivers") },
-            trailingIcon = {
-                // Trailing icon clearly indicates a dropdown
-                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-            },
-            colors = ExposedDropdownMenuDefaults.textFieldColors()
+            readOnly = true,
+            value = selectedDriver?.name ?: "Tap to select driver",
+            onValueChange = {},
+            label = { Text("Available Personnel") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(
+                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                unfocusedBorderColor = Color(0xFFE0E0E0)
+            ),
+            shape = RoundedCornerShape(12.dp)
         )
 
-        // 4. The dropdown menu itself
         ExposedDropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color.White)
         ) {
             drivers.forEach { driver ->
                 DropdownMenuItem(
-                    text = { Text("${driver.name} (Status: ${driver.status.name})") },
+                    text = {
+                        Column {
+                            Text(driver.name, fontWeight = FontWeight.Bold)
+                            Text("Status: ${driver.status.name}", fontSize = 11.sp, color = Color.Gray)
+                        }
+                    },
                     onClick = {
                         onDriverSelected(driver)
-                        expanded = false // Close the menu on selection
-                    },
-                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                        expanded = false
+                    }
                 )
             }
         }
     }
 }
-
 @Preview(showBackground = true)
 @Composable
 fun PreviewParcelDetailsScreen() {

@@ -1,5 +1,6 @@
 package com.mervyn.ggcouriergo.data
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -14,7 +15,6 @@ class OnboardingViewModel(private val repository: OnboardingRepository) : ViewMo
     private val _uiState = MutableStateFlow<OnboardingUIState>(OnboardingUIState.Loading)
     val uiState: StateFlow<OnboardingUIState> = _uiState
 
-    // Removed userId parameter as it's not needed for local onboarding flag
     fun completeOnboarding() {
         viewModelScope.launch {
             repository.completeOnboarding()
@@ -23,11 +23,12 @@ class OnboardingViewModel(private val repository: OnboardingRepository) : ViewMo
     }
 }
 
-class OnboardingViewModelFactory(private val repository: OnboardingRepository) :
-    ViewModelProvider.Factory {
+class OnboardingViewModelFactory(private val context: Context) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(OnboardingViewModel::class.java)) {
+            // Create the repository with context here
+            val repository = OnboardingRepository(context)
             return OnboardingViewModel(repository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

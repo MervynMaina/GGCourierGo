@@ -1,23 +1,34 @@
 package com.mervyn.ggcouriergo.ui.screens.driver
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.mervyn.ggcouriergo.data.DriverShiftViewModel
 import com.mervyn.ggcouriergo.data.DriverShiftViewModelFactory
-// 💥 NEW IMPORT REQUIRED: DriverRepository is needed for instantiation
+import com.mervyn.ggcouriergo.models.DriverShiftUIState
 import com.mervyn.ggcouriergo.repository.DriverRepository
 import com.mervyn.ggcouriergo.repository.DriverShiftRepository
-import com.mervyn.ggcouriergo.models.DriverShiftUIState
 import java.util.concurrent.TimeUnit
 
-// Helper to format milliseconds to H:MM:SS
 private fun formatTime(ms: Long): String {
     val seconds = TimeUnit.MILLISECONDS.toSeconds(ms) % 60
     val minutes = TimeUnit.MILLISECONDS.toMinutes(ms) % 60
@@ -29,128 +40,160 @@ private fun formatTime(ms: Long): String {
 @Composable
 fun DriverShiftScreen(
     navController: NavController,
-    // 💥 FIX START: Remove default viewModel construction here
-    // We will construct it inside the function body using `remember`
-    // viewModel: DriverShiftViewModel = viewModel(factory = DriverShiftViewModelFactory(DriverShiftRepository()))
+    modifier: Modifier = Modifier
 ) {
-    // 1. 💥 CRITICAL FIX: Instantiate DriverRepository (base dependency)
     val driverRepository = remember { DriverRepository() }
-
-    // 2. 💥 CRITICAL FIX: Instantiate DriverShiftRepository, passing the base dependency
     val driverShiftRepository = remember { DriverShiftRepository(driverRepository) }
-
-    // 3. 💥 CRITICAL FIX: Instantiate the ViewModel using the configured repository chain
     val viewModel: DriverShiftViewModel = viewModel(
         factory = remember { DriverShiftViewModelFactory(driverShiftRepository) }
     )
 
     val uiState by viewModel.uiState.collectAsState()
 
-    // We don't strictly need 'now' here as the ViewModel/State should drive the UI updates,
-    // but keeping it doesn't hurt.
+    // Pulsating animation logic
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.05f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ), label = "scale"
+    )
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Shift Manager") }) }
+        modifier = modifier,
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("SHIFT MANAGER", fontWeight = FontWeight.Black, fontSize = 18.sp) },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
+            )
+        }
     ) { paddingValues ->
         Column(
             modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF8F9FA))
                 .padding(paddingValues)
-                .padding(16.dp)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.Top,
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             when (val state = uiState) {
                 is DriverShiftUIState.Loading -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
                 is DriverShiftUIState.Error -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
-                    }
+                    Text("Error: ${state.message}", color = MaterialTheme.colorScheme.error)
                 }
                 is DriverShiftUIState.Success -> {
                     val shift = state.shift
-
-                    // Calculate live duration if active
                     val runningDuration = if (shift.isActive && shift.shiftStartTime != null) {
                         System.currentTimeMillis() - shift.shiftStartTime
-                    } else {
-                        0L
-                    }
+                    } else 0L
                     val currentShiftTime = shift.accumulatedTime + runningDuration
 
-                    Spacer(Modifier.height(32.dp))
+                    Spacer(Modifier.height(20.dp))
 
-                    // Status Indicator
-                    Text(
-                        if (shift.isActive) "ON DUTY" else "OFF DUTY",
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = if (shift.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                        )
-                    )
+                    // --- FIXED STATUS BADGE ---
+                    // Using graphicsLayer for scale avoids the Dp * Float math error
+                    Surface(
+                        color = if (shift.isActive) Color(0xFFE8F5E9) else Color(0xFFFFEBEE),
+                        shape = RoundedCornerShape(50.dp),
+                        modifier = Modifier
+                            .graphicsLayer {
+                                if (shift.isActive) {
+                                    scaleX = pulseScale
+                                    scaleY = pulseScale
+                                }
+                            }
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(if (shift.isActive) Color(0xFF2E7D32) else Color(0xFFC62828))
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (shift.isActive) "ACTIVE" else "OFF DUTY",
+                                fontWeight = FontWeight.Bold,
+                                color = if (shift.isActive) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
 
-                    Spacer(Modifier.height(24.dp))
+                    Spacer(Modifier.height(40.dp))
 
-                    // Clock Display Card
                     Card(
-                        modifier = Modifier.fillMaxWidth().height(150.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(32.dp),
+                        elevation = CardDefaults.cardElevation(2.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
                     ) {
                         Column(
-                            modifier = Modifier.fillMaxSize().padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color.White, Color(0xFFF1F3F4))
+                                    )
+                                )
+                                .padding(vertical = 40.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("Total Time Today", style = MaterialTheme.typography.titleMedium)
-                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "TOTAL WORK TIME",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color.Gray,
+                                letterSpacing = 2.sp
+                            )
+                            Spacer(Modifier.height(12.dp))
                             Text(
                                 formatTime(currentShiftTime),
-                                style = MaterialTheme.typography.headlineLarge.copy(
+                                style = MaterialTheme.typography.displayLarge.copy(
                                     fontWeight = FontWeight.Black,
-                                    color = MaterialTheme.colorScheme.onSurface
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 54.sp
                                 )
                             )
                         }
                     }
 
-                    Spacer(Modifier.height(32.dp))
+                    Spacer(Modifier.weight(1f))
 
-                    // 1. Clock In/Out Button
                     Button(
                         onClick = viewModel::toggleShift,
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (shift.isActive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                            containerColor = if (shift.isActive) Color(0xFFC62828) else MaterialTheme.colorScheme.primary
                         )
                     ) {
-                        Text(
-                            if (shift.isActive) "CLOCK OUT" else "CLOCK IN",
-                            style = MaterialTheme.typography.titleLarge
-                        )
+                        Icon(if (shift.isActive) Icons.Default.Stop else Icons.Default.PlayArrow, contentDescription = null)
+                        Spacer(Modifier.width(12.dp))
+                        Text(if (shift.isActive) "END SHIFT" else "START SHIFT", fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(Modifier.height(16.dp))
 
-                    // 2. NEW: Reset Button
                     OutlinedButton(
                         onClick = { viewModel.resetShift() },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !shift.isActive // Prevent reset while clock is running
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        enabled = !shift.isActive
                     ) {
-                        Text("Reset for New Day")
-                    }
-
-                    if (shift.isActive) {
-                        Text(
-                            "You must clock out to reset the timer.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
+                        Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("RESET DAY", fontWeight = FontWeight.Bold)
                     }
                 }
             }

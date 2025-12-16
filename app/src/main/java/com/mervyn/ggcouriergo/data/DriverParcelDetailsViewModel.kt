@@ -1,5 +1,7 @@
 package com.mervyn.ggcouriergo.data
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -30,6 +32,25 @@ class DriverParcelDetailsViewModel(private val repository: DriverParcelRepositor
             val success = repository.updateStatus(parcelId, newStatus)
             if (success) loadParcel(parcelId)
             onComplete?.invoke()
+        }
+    }
+
+    // NEW: Handles the Cloudinary upload and final status update
+    fun finalizeDelivery(
+        parcelId: String,
+        uri: Uri,
+        context: Context,
+        onComplete: (Boolean) -> Unit
+    ) {
+        _uiState.value = DriverParcelDetailsUIState.Loading // Show loading during upload
+        viewModelScope.launch {
+            val success = repository.completeDelivery(parcelId, uri, context)
+            if (success) {
+                onComplete(true)
+            } else {
+                _uiState.value = DriverParcelDetailsUIState.Error("Failed to upload proof of delivery.")
+                onComplete(false)
+            }
         }
     }
 }

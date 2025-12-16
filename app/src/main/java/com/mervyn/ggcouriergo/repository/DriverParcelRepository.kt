@@ -1,5 +1,7 @@
 package com.mervyn.ggcouriergo.repository
 
+import android.content.Context
+import android.net.Uri
 import com.google.firebase.firestore.FirebaseFirestore
 import com.mervyn.ggcouriergo.models.DriverParcelDetails
 import kotlinx.coroutines.tasks.await
@@ -21,7 +23,6 @@ class DriverParcelRepository {
                 receiverPhone = doc.getString("receiverPhone") ?: "",
                 packageDetails = doc.getString("packageDetails") ?: "",
                 status = doc.getString("status") ?: "",
-                // NEW: Map the delivery details
                 deliveredAt = doc.getLong("deliveredAt"),
                 deliveryPhotoUrl = doc.getString("deliveryPhotoUrl")
             )
@@ -30,14 +31,39 @@ class DriverParcelRepository {
         }
     }
 
-    // NOTE: This repository needs an update status method that accepts the photo URL,
-    // but for now, we leave the simple one as the screen simulates the URL.
     suspend fun updateStatus(parcelId: String, newStatus: String): Boolean {
         return try {
             db.collection("parcels").document(parcelId)
                 .update("status", newStatus)
                 .await()
             true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // REAL CLOUDINARY INTEGRATION
+    suspend fun completeDelivery(parcelId: String, imageUri: Uri, context: Context): Boolean {
+        return try {
+            // 1. Upload to Cloudinary
+            val imageRepo = ImageRepository(context)
+            val uploadedUrl = imageRepo.uploadProofOfDelivery(imageUri)
+
+            if (uploadedUrl != null) {
+                // 2. Update Firestore with REAL data
+                db.collection("parcels")
+                    .document(parcelId)
+                    .update(
+                        mapOf(
+                            "status" to "delivered",
+                            "deliveryPhotoUrl" to uploadedUrl,
+                            "deliveredAt" to System.currentTimeMillis()
+                        )
+                    ).await()
+                true
+            } else {
+                false
+            }
         } catch (e: Exception) {
             false
         }

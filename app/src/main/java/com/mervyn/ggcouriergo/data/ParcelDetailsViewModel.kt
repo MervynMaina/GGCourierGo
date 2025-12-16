@@ -3,7 +3,7 @@ package com.mervyn.ggcouriergo.data
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.mervyn.ggcouriergo.models.DriverStatus
+import com.mervyn.ggcouriergo.models.Parcel
 import com.mervyn.ggcouriergo.models.ParcelDetailsData
 import com.mervyn.ggcouriergo.models.ParcelDetailsUIState
 import com.mervyn.ggcouriergo.repository.DriverRepository
@@ -24,8 +24,8 @@ class ParcelDetailsViewModel(
         _uiState.value = ParcelDetailsUIState.Loading
         viewModelScope.launch {
             try {
-                // 1. Fetch the target parcel
-                val parcel = parcelRepository.getParcel(parcelId)
+                // 1. Fetch the target parcel (Now resolved in repository)
+                val parcel: Parcel? = parcelRepository.getParcel(parcelId)
 
                 // 2. Fetch the list of available drivers
                 val drivers = driverRepository.getAvailableDrivers()
@@ -44,15 +44,15 @@ class ParcelDetailsViewModel(
     }
 
     fun assignDriverToParcel(parcelId: String, driverId: String) {
+        // Prevent double clicks
         if (_uiState.value is ParcelDetailsUIState.Loading) return
 
         _uiState.value = ParcelDetailsUIState.Loading
         viewModelScope.launch {
+            // Using the assignDriver function we added earlier to the repository
             val success = parcelRepository.assignDriver(parcelId, driverId)
 
             if (success) {
-                // Optionally update driver status to ON_DELIVERY here, if business logic dictates
-                // driverRepository.updateDriverStatus(driverId, DriverStatus.ON_DELIVERY)
                 _uiState.value = ParcelDetailsUIState.AssignmentSuccess
             } else {
                 _uiState.value = ParcelDetailsUIState.Error("Failed to assign driver. Try again.")

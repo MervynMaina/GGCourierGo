@@ -14,7 +14,10 @@ class SplashRepository(
 
         return try {
             val doc = db.collection("users").document(currentUser.uid).get().await()
-            val role = when (doc.getString("role")) {
+            // Standardize string to lowercase to match the "when" cases safely
+            val roleStr = doc.getString("role")?.lowercase() ?: "new_user"
+
+            val role = when (roleStr) {
                 "admin" -> UserRole.ADMIN
                 "dispatcher" -> UserRole.DISPATCHER
                 "driver" -> UserRole.DRIVER

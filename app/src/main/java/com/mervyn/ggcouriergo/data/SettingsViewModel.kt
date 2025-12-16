@@ -1,29 +1,39 @@
 package com.mervyn.ggcouriergo.data
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.mervyn.ggcouriergo.navigation.ROUT_LOGIN
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 
 class SettingsViewModel : ViewModel() {
 
     private val auth = FirebaseAuth.getInstance()
 
-    // In a real app, this would load from DataStore or SharedPreferences
     private val _isDarkTheme = MutableStateFlow(false)
     val isDarkTheme: StateFlow<Boolean> = _isDarkTheme
 
+    // A SharedFlow for one-time events like showing a Snackbar
+    private val _themeEvent = MutableSharedFlow<String>()
+    val themeEvent: SharedFlow<String> = _themeEvent.asSharedFlow()
+
     fun toggleDarkTheme(enabled: Boolean) {
         _isDarkTheme.value = enabled
-        // TODO: In a real app, save this state persistently (DataStore) and
-        // notify the main activity/host composable to change the theme.
+        viewModelScope.launch {
+            val mode = if (enabled) "Dark Mode" else "Light Mode"
+            _themeEvent.emit("$mode Enabled")
+        }
     }
 
     fun logout(navController: androidx.navigation.NavController) {
         auth.signOut()
-        navController.navigate("login") {
-            // Clear the back stack to prevent returning to the app after logging out
-            popUpTo("login") { inclusive = true }
+        navController.navigate(ROUT_LOGIN) {
+            popUpTo(0) { inclusive = true }
         }
     }
 }

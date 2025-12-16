@@ -3,12 +3,19 @@ package com.mervyn.ggcouriergo.ui.screens.dispatcher
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mervyn.ggcouriergo.data.NewParcelsViewModel
 import com.mervyn.ggcouriergo.data.NewParcelsViewModelFactory
@@ -19,7 +26,6 @@ import com.mervyn.ggcouriergo.ui.theme.GGCourierGoTheme
 
 @Composable
 fun NewParcelsTab(
-    // Function passed from DispatcherDashboardScreen to handle navigation to assignment/details screen
     onNavigateToAssignment: (String) -> Unit,
     viewModel: NewParcelsViewModel = viewModel(
         factory = NewParcelsViewModelFactory(ParcelRepository())
@@ -27,41 +33,37 @@ fun NewParcelsTab(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Parcels Pending Assignment",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.height(8.dp))
-
-        when (val state = uiState) {
-            is NewParcelsUIState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+    when (val state = uiState) {
+        is NewParcelsUIState.Loading -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             }
-            is NewParcelsUIState.Error -> {
-                Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text("Error loading new parcels: ${state.message}", color = MaterialTheme.colorScheme.error)
-                }
+        }
+        is NewParcelsUIState.Error -> {
+            Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                Text(state.message, color = MaterialTheme.colorScheme.error)
             }
-            is NewParcelsUIState.Success -> {
-                val newParcels = state.parcels
-                if (newParcels.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No new parcels are currently waiting for assignment.", style = MaterialTheme.typography.bodyLarge)
-                    }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(newParcels, key = { it.id }) { parcel ->
-                            NewParcelCard(parcel = parcel) {
-                                // Triggers navigation to the screen where the dispatcher selects a driver
-                                onNavigateToAssignment(parcel.id)
-                            }
-                        }
+        }
+        is NewParcelsUIState.Success -> {
+            if (state.parcels.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.Inventory2, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
+                    Spacer(Modifier.height(16.dp))
+                    Text("Everything clear!", fontWeight = FontWeight.Bold, color = Color.Gray)
+                    Text("No new parcels waiting.", color = Color.LightGray)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(state.parcels, key = { it.id }) { parcel ->
+                        NewParcelCard(parcel = parcel) { onNavigateToAssignment(parcel.id) }
                     }
                 }
             }
@@ -69,33 +71,72 @@ fun NewParcelsTab(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewParcelCard(parcel: Parcel, onClick: () -> Unit) {
     Card(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("ID: ${parcel.id}", style = MaterialTheme.typography.titleMedium)
-                Text("Status: ${parcel.status.uppercase()}", color = MaterialTheme.colorScheme.tertiary)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("SENDER", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    Text(parcel.senderName, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, color = Color.Black)
+                }
+                Surface(
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        "PENDING",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
-            Button(onClick = onClick) {
-                Text("Assign Driver")
+
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.5f))
+            Spacer(Modifier.height(12.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("PICKUP", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    Text(parcel.pickupAddress, maxLines = 1, color = Color.DarkGray, fontSize = 14.sp)
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.padding(horizontal = 8.dp).size(16.dp),
+                    tint = Color.LightGray
+                )
+                Column(Modifier.weight(1f)) {
+                    Text("DROPOFF", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    Text(parcel.dropoffAddress, maxLines = 1, color = Color.DarkGray, fontSize = 14.sp)
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Button(
+                onClick = onClick,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Text("ASSIGN DRIVER", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
     }
 }
-
 // Preview Note: Requires a mock UI State and Parcel object for a functional preview.
 @Preview(showBackground = true)
 @Composable

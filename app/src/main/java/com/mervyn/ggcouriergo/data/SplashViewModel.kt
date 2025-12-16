@@ -5,13 +5,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.mervyn.ggcouriergo.models.SplashUIState
 import com.mervyn.ggcouriergo.repository.SplashRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 open class SplashViewModel(private val repository: SplashRepository) : ViewModel() {
 
-    // Backing state
     internal val _uiState = MutableStateFlow<SplashUIState>(SplashUIState.Loading)
     val uiState: StateFlow<SplashUIState> = _uiState
 
@@ -19,10 +19,10 @@ open class SplashViewModel(private val repository: SplashRepository) : ViewModel
         checkUserRole()
     }
 
-    // Private function to load user role
     private fun checkUserRole() {
         viewModelScope.launch {
             _uiState.value = SplashUIState.Loading
+            delay(1500) // Aesthetic delay for branding visibility
             val result = repository.getUserRole()
             _uiState.value = result.fold(
                 onSuccess = { role -> SplashUIState.Success(role) },
@@ -31,13 +31,11 @@ open class SplashViewModel(private val repository: SplashRepository) : ViewModel
         }
     }
 
-    // Public retry function for Retry button
     open fun retryCheckUserRole() {
         checkUserRole()
     }
 }
 
-// Factory remains unchanged
 class SplashViewModelFactory(private val repository: SplashRepository) :
     ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
